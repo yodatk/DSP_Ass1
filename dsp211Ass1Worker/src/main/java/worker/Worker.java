@@ -5,7 +5,10 @@ import java.awt.image.BufferedImage;
 import java.awt.image.RenderedImage;
 import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 // Aprise OCR
 import com.asprise.ocr.Ocr;
@@ -52,19 +55,29 @@ public class Worker {
             // the path of your tess data folder
             // inside the extracted file
             if (image != null) {
-                Tesseract tesseract = new Tesseract();
-                tesseract.setDatapath("/tessdata");
-                tesseract.setLanguage("eng");
-                tesseract.setPageSegMode(1);
-                tesseract.setOcrEngineMode(1);
-                String text
-                        = tesseract.doOCR(toBufferedImage(image));
 
-                // path of your image file
-                System.out.print(text);
+                Tesseract tesseract = new Tesseract();
+                tesseract.setLanguage("eng");
+                tesseract.setOcrEngineMode(1);
+
+                Path dataDirectory = Paths.get(ClassLoader.getSystemResource("data").toURI());
+                tesseract.setDatapath(dataDirectory.toString());
+
+                String result = tesseract.doOCR(toBufferedImage(image));
+                System.out.println(result);
+//                Tesseract tesseract = new Tesseract();
+//                tesseract.setDatapath("/tessdata");
+//                tesseract.setLanguage("eng");
+//                tesseract.setPageSegMode(1);
+//                tesseract.setOcrEngineMode(1);
+//                String text
+//                        = tesseract.doOCR(toBufferedImage(image));
+//
+//                // path of your image file
+//                System.out.print(text);
             }
 
-        } catch (TesseractException e) {
+        } catch (TesseractException | URISyntaxException e) {
             e.printStackTrace();
         }
     }

@@ -42,7 +42,7 @@ public class Worker {
     }
 
     public void newImageTaskWithTessaract(String urlString) {
-        System.out.println("Working Directory = " + System.getProperty("user.dir"));
+        System.out.println(urlString);
 
         try {
             Image image = null;
@@ -60,10 +60,11 @@ public class Worker {
                 tesseract.setLanguage("eng");
                 tesseract.setOcrEngineMode(1);
 
-                Path dataDirectory = Paths.get(ClassLoader.getSystemResource("data").toURI());
+                 Path dataDirectory = Paths.get(ClassLoader.getSystemResource("data").toURI());
                 tesseract.setDatapath(dataDirectory.toString());
 
                 String result = tesseract.doOCR(toBufferedImage(image));
+                System.out.println(urlString);
                 System.out.println(result);
 //                Tesseract tesseract = new Tesseract();
 //                tesseract.setDatapath("/tessdata");
@@ -77,7 +78,7 @@ public class Worker {
 //                System.out.print(text);
             }
 
-        } catch (TesseractException | URISyntaxException e) {
+        } catch (TesseractException  | URISyntaxException e) {
             e.printStackTrace();
         }
     }

@@ -3,6 +3,10 @@ package worker;
 public class WorkerMain {
     public static void main(String[] args) {
 
+        if(args.length < 1){
+
+        }
+
         String[] arr = new String[]{
                 "http://ct.mob0.com/Fonts/CharacterMap/ocraextended.png",
                 "http://www.columbiamt.com/CMT-Marking-Stamps/images/OCR-A-Font.gif",

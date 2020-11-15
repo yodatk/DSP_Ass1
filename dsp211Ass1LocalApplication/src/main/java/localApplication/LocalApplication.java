@@ -1,11 +1,24 @@
 package localApplication;
 
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.ec2.Ec2Client;
+import software.amazon.awssdk.services.ec2.model.*;
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.model.CreateQueueRequest;
+import software.amazon.awssdk.services.sqs.model.QueueAttributeName;
+
+import java.util.HashMap;
+
+
 public class LocalApplication {
 
     public final static int INPUT_FILE_NAME_INDEX = 0;
     public final static int OUTPUT_FILE_NAME_INDEX = 1;
     public final static int N_INDEX = 2;
     public final static int TERMINATE_INDEX = 3;
+    public final static Region REGION = Region.US_WEST_2;
+    public static final  String MANAGER = "manager";
+    public static final String REGISTRATION_QUEUE = "RegistrationQueue";
 
     private String inputFileName;
     private String outputFileName;
@@ -44,11 +57,57 @@ public class LocalApplication {
         return isTerminate;
     }
 
-    public void run() {
+    public void CreateManagerIfNotRunning(Ec2Client ec2, SqsClient sqsClient) throws Exception{
+        System.out.println("check if manager exist");
+
+        boolean manager_is_running = false;
+        String nextToken = null;
+
+        try {
+
+            do {
+                DescribeInstancesRequest request = DescribeInstancesRequest.builder().maxResults(6).nextToken(nextToken).build();
+                DescribeInstancesResponse response = ec2.describeInstances(request);
+
+                for (Reservation reservation : response.reservations()) {
+                    for (Instance instance : reservation.instances()) {
+                        for (Tag tag : instance.tags())
+                            if(tag.value().equals(MANAGER)){
+                                System.out.println("manager is already running");
+                                manager_is_running = true;
+                                break;
+                            }
+                    }
+                }
+                nextToken = response.nextToken();
+            } while (nextToken != null);
+            if (!manager_is_running){
+                System.out.println("Creating manager...");
+                HashMap<QueueAttributeName,String> attributes = new HashMap<>();
+                //attributes.put(QueueAttributeName.RECEIVE_MESSAGE_WAIT_TIME_SECONDS, "20");
+                CreateQueueRequest createQueueRequest = CreateQueueRequest.builder()
+                        .queueName(REGISTRATION_QUEUE)
+                        .attributes(attributes).build();
+                sqsClient.createQueue(createQueueRequest);
+                //TODO create instance of manager with proper AMI
+            }
+
+        } catch (Ec2Exception e) {
+            System.err.println(e.awsErrorDetails().errorMessage());
+            System.exit(1);
+        }
+    }
+
+    public void run() throws Exception {
         if (this.isTerminate) {
             System.out.println("terminate");
         }
         System.out.println("ALL GOOD...");
+        String app_name = "LocalApp" + System.currentTimeMillis();
+        Ec2Client ec2 = Ec2Client.builder().region(REGION).build();
+        SqsClient sqsClient = SqsClient.builder().region(REGION).build();
+        CreateManagerIfNotRunning(ec2,sqsClient);
+
     }
 
     /**

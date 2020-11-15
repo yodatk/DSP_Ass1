@@ -60,7 +60,7 @@ public class Worker {
                 tesseract.setLanguage("eng");
                 tesseract.setOcrEngineMode(1);
 
-                 Path dataDirectory = Paths.get(ClassLoader.getSystemResource("data").toURI());
+                Path dataDirectory = Paths.get(ClassLoader.getSystemResource("data").toURI());
                 tesseract.setDatapath(dataDirectory.toString());
 
                 String result = tesseract.doOCR(toBufferedImage(image));

@@ -76,6 +76,7 @@ public class LocalApplication {
                                 System.out.println("manager is already running");
                                 manager_is_running = true;
                                 break;
+                                
                             }
                     }
                 }

@@ -12,7 +12,8 @@ import java.util.Map;
 
 public class ManagerMain {
     public static final String WOKERS_SQS = "TO_DO_QUEUE"; // sqs for workers
-    public static final String MANAGER_SQS = "COMPLETED_QUEUE"; // sqs for MANAGER
+    public static final String WORKERS_TO_MANAGER_SQS = "COMPLETED_IMAGES_QUEUE"; // sqs for MANAGER to get messages from workers
+    public static final String LOCALS_TO_MANAGER_SQS = "TASKS_FROM_LOCAL_QUEUE"; // sqs for MANAGER to get messages from locals
     public static final String IMAGE_URL = "imageUrl";
     public static final String INDEX = "index";
 
@@ -21,6 +22,7 @@ public class ManagerMain {
 
         Manager manager = new Manager();
 
+        Map<String,String> localsQueues = new HashMap<>();
 
         if (args.length < 3) {
             System.out.println("AWS key, images location, and 'n' must be inserted");
@@ -52,7 +54,7 @@ public class ManagerMain {
         String queueWorkersUrl = sqs.getQueueUrl(getWorkersQueueRequest).queueUrl();
 
         GetQueueUrlRequest getManagerQueueRequest = GetQueueUrlRequest.builder()
-                .queueName(MANAGER_SQS)
+                .queueName(WORKERS_TO_MANAGER_SQS)
                 .build();
         String queueManagersUrl = sqs.getQueueUrl(getManagerQueueRequest).queueUrl();
 

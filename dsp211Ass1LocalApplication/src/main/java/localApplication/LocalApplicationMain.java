@@ -14,13 +14,13 @@ public class LocalApplicationMain {
             System.out.println(argsCheck);
         } else {
             // arguments are fine
-            LocalApplication localApp;
-            if (args.length > 3 && args[3].equals("terminate")){
-                localApp = new LocalApplication(args[0],args[1],Integer.parseInt(args[2]),true);
-            }
-            else {
-                localApp = new LocalApplication(args[0],args[1],Integer.parseInt(args[2]),false);
-            }
+            LocalApplication localApp = new LocalApplication(args);
+//            if (args.length > 3 && args[3].equals("terminate")){
+//                localApp = new LocalApplication(args[0],args[1],Integer.parseInt(args[2]),true);
+//            }
+//            else {
+//                localApp = new LocalApplication(args[0],args[1],Integer.parseInt(args[2]),false);
+//            }
             localApp.run();
         }
     }

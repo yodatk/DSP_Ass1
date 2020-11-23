@@ -127,7 +127,7 @@ public class Manager {
                 List<Message> messagesFromLocalApplications = sqs.receiveMessage(receiveRequestsFromLocals).messages();
                 for (Message m : messagesFromLocalApplications) {
                     // m = message from local application to manager
-                    // localID, localSqsName, S3Bucket,
+                    // localID, localSqsName, S3Bucket, S3BucketKey
                     if (this.isTerminated) {
                         break;
                     }
@@ -135,6 +135,7 @@ public class Manager {
                     String localSqsName = m.attributesAsStrings().get(LOCAL_SQS_NAME);
                     String s3BucketName = m.attributesAsStrings().get(S_3_BUCKET_NAME);
                     String s3BucketKey = m.attributesAsStrings().get(S_3_BUCKET_KEY);
+                    //Integer N could be different from local to local
                     //String s3BucketFileName = m.attributesAsStrings().get("s3BucketFileName");
 
                     this.isTerminated = m.attributesAsStrings().get(TERMINATE).equals(TERMINATE);

@@ -1,13 +1,21 @@
 package localApplication;
 
+
+import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.*;
+import software.amazon.awssdk.services.ec2.model.Tag;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.*;
 import software.amazon.awssdk.services.sqs.SqsClient;
-import software.amazon.awssdk.services.sqs.model.CreateQueueRequest;
-import software.amazon.awssdk.services.sqs.model.QueueAttributeName;
+import software.amazon.awssdk.services.sqs.model.*;
 
+
+import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 
 public class LocalApplication {
@@ -17,29 +25,26 @@ public class LocalApplication {
     public final static int N_INDEX = 2;
     public final static int TERMINATE_INDEX = 3;
     public final static Region REGION = Region.US_WEST_2;
-    public static final  String MANAGER = "manager";
-    //todo match name with manager
-    public static final String REGISTRATION_QUEUE = "RegistrationQueue";
+    public static final String MANAGER = "manager";
+    public static final String LOCALS_TO_MANAGER_SQS = "TASKS_FROM_LOCAL_QUEUE";
+    public static final String LOCAL_ID = "localID";
+    public static final String LOCAL_SQS_NAME = "localSqsName";
+    public static final String S_3_BUCKET_NAME = "s3BucketName";
+    public static final String S_3_BUCKET_KEY = "s3BucketKey";
+    //TODO create proper AMI
+    public static final String AMIID = "";
 
     private String inputFileName;
     private String outputFileName;
     private int N;
     private boolean isTerminate;
-
-    public LocalApplication(String inputFileName, String outputFileName, int n, boolean isTerminate) {
-        this.inputFileName = inputFileName;
-        this.outputFileName = outputFileName;
-        N = n;
-        this.isTerminate = isTerminate;
-    }
+//
 
     public LocalApplication(String[] args) {
-        this(
-                args[INPUT_FILE_NAME_INDEX],
-                args[OUTPUT_FILE_NAME_INDEX],
-                Integer.parseInt(args[N_INDEX]),
-                (args.length > 3 && args[TERMINATE_INDEX].equals("terminate"))
-        );
+        this.inputFileName = args[INPUT_FILE_NAME_INDEX];
+        this.outputFileName = args[OUTPUT_FILE_NAME_INDEX];
+        this.N = Integer.parseInt(args[N_INDEX]);
+        this.isTerminate = (args.length > 3 && args[TERMINATE_INDEX].equals("terminate"));
     }
 
     public String getInputFileName() {
@@ -50,16 +55,82 @@ public class LocalApplication {
         return outputFileName;
     }
 
-    public int getN() {
-        return N;
+
+    public void run() throws Exception {
+
+        System.out.println("ALL GOOD...");
+        String app_name = "LocalApp" + System.currentTimeMillis();
+        String queue_name = app_name + "Queue";
+        //todo - to check if we can put all locals on the same bucket
+        final String bucket = "bucket" + System.currentTimeMillis();
+        Ec2Client ec2 = Ec2Client.builder().region(REGION).build();
+        SqsClient sqs_client = SqsClient.builder().region(REGION).build();
+        S3Client s3 = S3Client.builder().region(REGION).build();
+        createManagerIfNotRunning(ec2, sqs_client);
+        String file_name = uploadFileToS3(s3, bucket);
+        createLocalQueue(sqs_client, queue_name);
+        // m = message from local application to manager
+        sendRegistrationMessage(sqs_client, app_name, queue_name, bucket, file_name);
+
+        boolean receive_ans = false;
+        while (!receive_ans) {
+            ReceiveMessageRequest receiveMessageRequest = ReceiveMessageRequest.builder()
+                    .queueUrl(this.getQueueUrl(sqs_client, queue_name))
+                    .waitTimeSeconds(10)
+                    .visibilityTimeout(1)
+                    .build();
+            List<Message> messages = sqs_client.receiveMessage(receiveMessageRequest).messages();
+            for (Message m : messages) {
+                if (m.body().startsWith("done")) {
+                    receive_ans = true;
+                    //todo- to match the names with the manger
+                    String HTML_file = m.attributesAsStrings().get("HTML_File");
+                    s3.getObject(GetObjectRequest.builder().bucket(bucket).key(HTML_file).build(), ResponseTransformer.toFile(Paths.get(this.getOutputFileName())));
+                    System.out.println("HTML file is parsed and ready");
+                    break;
+                }
+            }
+        }
+        if (this.isTerminate) {
+            System.out.println("Sending termination message");
+            SendMessageRequest send_msg_requset = SendMessageRequest.builder()
+                    .queueUrl(this.getQueueUrl(sqs_client, LOCALS_TO_MANAGER_SQS))
+                    .messageBody("Terminate")
+                    .build();
+            sqs_client.sendMessage(send_msg_requset);
+        }
     }
 
-    public boolean isTerminate() {
-        return isTerminate;
+    public String getQueueUrl(SqsClient sqsClient, String queue_name) {
+        GetQueueUrlRequest getQueueUrlRequest = GetQueueUrlRequest.builder()
+                .queueName(queue_name)
+                .build();
+        return sqsClient.getQueueUrl(getQueueUrlRequest).queueUrl();
     }
 
-    public void CreateManagerIfNotRunning(Ec2Client ec2, SqsClient sqsClient) throws Exception{
-        System.out.println("check if manager exist");
+    public void sendRegistrationMessage(SqsClient sqs_client, String app_name, String queue_name, String bucket_name, String file_name) {
+        System.out.println("Sending registration message");
+        Map<String, MessageAttributeValue> messageAttributes = new HashMap<>();
+        messageAttributes.put(LOCAL_ID, MessageAttributeValue.builder().stringValue(app_name).build());
+        messageAttributes.put(LOCAL_SQS_NAME, MessageAttributeValue.builder().stringValue(queue_name).build());
+        messageAttributes.put(S_3_BUCKET_NAME, MessageAttributeValue.builder().stringValue(bucket_name).build());
+        messageAttributes.put(S_3_BUCKET_KEY, MessageAttributeValue.builder().stringValue(file_name).build());
+        messageAttributes.put("N", MessageAttributeValue.builder().stringValue(Integer.toString(this.N)).build());
+        SendMessageRequest send_msg_request = SendMessageRequest.builder()
+                .queueUrl(this.getQueueUrl(sqs_client, LOCALS_TO_MANAGER_SQS))
+                .messageAttributes(messageAttributes)
+                .build();
+        sqs_client.sendMessage(send_msg_request);
+    }
+
+    public void createLocalQueue(SqsClient sqsClient, String local_name_queue) {
+        System.out.println("Creating local queue: " + local_name_queue);
+        CreateQueueRequest createQueueRequest = CreateQueueRequest.builder().queueName(local_name_queue).build();
+        sqsClient.createQueue(createQueueRequest);
+    }
+
+    public void createManagerIfNotRunning(Ec2Client ec2, SqsClient sqsClient){
+        System.out.println("checking if manager exist...");
 
         boolean manager_is_running = false;
         String nextToken = null;
@@ -73,25 +144,25 @@ public class LocalApplication {
                 for (Reservation reservation : response.reservations()) {
                     for (Instance instance : reservation.instances()) {
                         for (Tag tag : instance.tags())
-                            if(tag.value().equals(MANAGER)){
+                            if (tag.value().equals(MANAGER)) {
                                 System.out.println("manager is already running");
                                 manager_is_running = true;
                                 break;
-
                             }
                     }
                 }
                 nextToken = response.nextToken();
             } while (nextToken != null);
-            if (!manager_is_running){
+            if (!manager_is_running) {
                 System.out.println("Creating manager...");
-                HashMap<QueueAttributeName,String> attributes = new HashMap<>();
+                createEc2Instance(MANAGER, AMIID, ec2);
+                HashMap<QueueAttributeName, String> attributes = new HashMap<>();
                 //attributes.put(QueueAttributeName.RECEIVE_MESSAGE_WAIT_TIME_SECONDS, "20");
                 CreateQueueRequest createQueueRequest = CreateQueueRequest.builder()
-                        .queueName(REGISTRATION_QUEUE)
+                        .queueName(LOCALS_TO_MANAGER_SQS)
                         .attributes(attributes).build();
                 sqsClient.createQueue(createQueueRequest);
-                //TODO create instance of manager with proper AMI
+                System.out.println("Manager is Running");
             }
 
         } catch (Ec2Exception e) {
@@ -100,17 +171,67 @@ public class LocalApplication {
         }
     }
 
-    public void run() throws Exception {
-        if (this.isTerminate) {
-            System.out.println("terminate");
-        }
-        System.out.println("ALL GOOD...");
-        String app_name = "LocalApp" + System.currentTimeMillis();
-        Ec2Client ec2 = Ec2Client.builder().region(REGION).build();
-        SqsClient sqsClient = SqsClient.builder().region(REGION).build();
-        CreateManagerIfNotRunning(ec2,sqsClient);
 
+    public static void createEc2Instance(String name, String amiId, Ec2Client ec2) {
+        RunInstancesRequest runRequest = RunInstancesRequest.builder()
+                .imageId(amiId)
+                .instanceType(InstanceType.T1_MICRO)
+                .maxCount(1)
+                .minCount(1)
+                .build();
+        //toAdd the proper jar with .userData(Base64.getEncoder().encodeToString("java -jar path_to_jar".getBytes()))
+
+        RunInstancesResponse response = ec2.runInstances(runRequest);
+        String instanceId = response.instances().get(0).instanceId();
+        Tag tag = Tag.builder()
+                .key("Name")
+                .value(name)
+                .build();
+
+        CreateTagsRequest tagRequest = CreateTagsRequest.builder()
+                .resources(instanceId)
+                .tags(tag)
+                .build();
+        try {
+            ec2.createTags(tagRequest);
+            System.out.printf(
+                    "Successfully started EC2 Instance %s based on AMI %s",
+                    instanceId, amiId);
+            System.out.println("Successfully started EC2 Instance " + instanceId + " based on AMI " + amiId);
+
+        } catch (Ec2Exception e) {
+            System.err.println(e.awsErrorDetails().errorMessage());
+            System.exit(1);
+        }
     }
+
+    public String uploadFileToS3(S3Client s3, String bucket) {
+        System.out.println("Uploading file to s3");
+        createBucket(bucket, s3);
+        String file_name = "file" + System.currentTimeMillis();
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(bucket)
+                .key(file_name)
+                .build();
+        s3.putObject(putObjectRequest, Paths.get(this.getInputFileName()));
+
+        System.out.println("Uploading file: " + file_name + " to bucket: " + bucket);
+        return file_name;
+    }
+
+    public static void createBucket(String bucketName, S3Client s3) {
+        s3.createBucket(CreateBucketRequest
+                .builder()
+                .bucket(bucketName)
+                .createBucketConfiguration(
+                        CreateBucketConfiguration.builder()
+                                .locationConstraint(REGION.id())
+                                .build())
+                .build());
+
+        System.out.println(bucketName + " Created");
+    }
+
 
     /**
      * checks if the argumnents given to the local application is valid.

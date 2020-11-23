@@ -39,17 +39,18 @@ public class Manager {
     public static final String PARSED_TEXT = "parsedText";
     public static final String TEMP_FILE_PREFIX = "_tempFiles";
 
-    private int n;
-    private String awsKey;
+    private final int n;
+    private int numberOfActiveWorkers = 0;
+    private final String awsKey;
     private String queueWorkersUrl;
     private String queueWorkersToManagersUrl;
     private String queueLocalsToManagersUrl;
     private SqsClient sqs;
     private Map<String, Ec2Client> workersToEC2;
-    private Map<String, String> localQueues;
-    private Map<String, Integer> localToNumberOfTasksRemains;
-    private Map<String, Integer> localTempFileName;
-    private Map<String, Map<String, String>> localParsedImages;
+    private final Map<String, String> localQueues;
+    private final Map<String, Integer> localToNumberOfTasksRemains;
+    private final Map<String, Integer> localTempFileName;
+    private final Map<String, Map<String, String>> localParsedImages;
 
     private boolean isTerminated;
     private S3Client s3;
@@ -127,6 +128,9 @@ public class Manager {
                 for (Message m : messagesFromLocalApplications) {
                     // m = message from local application to manager
                     // localID, localSqsName, S3Bucket,
+                    if (this.isTerminated) {
+                        break;
+                    }
                     String localId = m.attributesAsStrings().get(LOCAL_ID);
                     String localSqsName = m.attributesAsStrings().get(LOCAL_SQS_NAME);
                     String s3BucketName = m.attributesAsStrings().get(S_3_BUCKET_NAME);
@@ -139,7 +143,7 @@ public class Manager {
 
                     s3.getObject(GetObjectRequest.builder().bucket(s3BucketName).key(s3BucketKey).build(),
                             ResponseTransformer.toFile(Paths.get(localId + "_inputfile.txt")));
-                    int currentLocalTasksCounter = 0;
+                    int currentLocalImagesCounter = 0;
                     try {
                         File currentInput = new File(Paths.get(localId + "_inputfile.txt").toUri());
                         BufferedReader br = new BufferedReader(new FileReader(currentInput));
@@ -157,7 +161,15 @@ public class Manager {
                                     .delaySeconds(5)
                                     .build();
                             sqs.sendMessage(send_msg_request);
-                            currentLocalTasksCounter++;
+                            // todo check if message arrives before increasing
+                            currentLocalImagesCounter++;
+                        }
+
+                        // initilize workers:
+                        int numberOfWorkersToAdd = (currentLocalImagesCounter / n) - numberOfActiveWorkers;
+                        if (numberOfWorkersToAdd > 0) {
+                            //add workers
+
                         }
 
 
@@ -170,7 +182,7 @@ public class Manager {
                         e.printStackTrace();
                     }
                     // save the amount of images to review to make sure we know when the task is done and html parsing can begin
-                    this.localToNumberOfTasksRemains.put(localId, currentLocalTasksCounter);
+                    this.localToNumberOfTasksRemains.put(localId, currentLocalImagesCounter);
                     // todo delete input file
                 }
             }
@@ -205,8 +217,8 @@ public class Manager {
 
             }
             // todo  check for done tasks -> send to html parser all the relevant data
-            for(Map.Entry<String,Integer> entry: this.localToNumberOfTasksRemains.entrySet()){
-                if (entry.getValue() == 0){
+            for (Map.Entry<String, Integer> entry : this.localToNumberOfTasksRemains.entrySet()) {
+                if (entry.getValue() == 0) {
                     // task finished -> parse to html
                     //this.localParsedImages
                     // todo  check for done tasks -> send to html parser all the relevant data
@@ -217,62 +229,8 @@ public class Manager {
     }
 
 
-//        // give work to workers
-//        for (int i = 0; i < numberOfImages; i++) {
-//            String imageUrl = getCurrentImage(i);
-//
-//            Map<String, MessageAttributeValue> attr = new HashMap<>();
-//            attr.put(INDEX, MessageAttributeValue.builder().stringValue(Integer.toString(i)).build());
-//            attr.put(IMAGE_URL, MessageAttributeValue.builder().stringValue(imageUrl).build());
-//            SendMessageRequest send_msg_request = SendMessageRequest.builder()
-//                    .queueUrl(queueWorkersUrl)
-//                    .messageBody(i + " " + imageUrl)
-//                    .messageAttributes(attr)
-//                    .delaySeconds(5)
-//                    .build();
-//            sqs.sendMessage(send_msg_request);
-//        }
-
-
-//        String imageUrl = messageParams.get(IMAGE_URL).stringValue();
-//        String parsed = getParsedDataFromS3(imageUrl);
-
-//
-//    private Collection<String> loadFileFromS3() {
-//        try (final S3Object s3Object = amazonS3Client.getObject(BUCKET_NAME,
-//                FILE_NAME);
-//             final InputStreamReader streamReader = new InputStreamReader(s3Object.getObjectContent(), StandardCharsets.UTF_8);
-//             final BufferedReader reader = new BufferedReader(streamReader)) {
-//            return reader.lines().collect(Collectors.toSet());
-//        } catch (final IOException e) {
-//            log.error(e.getMessage(), e)
-//            return Collections.emptySet();
-//        }
-//    }
-
-    public String getParsedDataFromS3(String imageUrl) {
-
-        //todo
-        return "";
-    }
-
-    public void deleteImageFromS3(String ImageIndex) {
-        //todo
-    }
-
-    public String getCurrentImage(int index) {
-        //todo
-        return "todo";
-    }
-
-    public int getNumberOfImages() {
-        //todo
-        return 1;
-    }
-
-    public Map<String, Ec2Client> createWorkers(int n) {
+    public Map<String, Ec2Client> createWorkers(int numberOfWorkersToAdd) {
         // todo
-        int numberOfWorkers = getNumberOfImages() / n;
         return new HashMap<String, Ec2Client>();
     }
 

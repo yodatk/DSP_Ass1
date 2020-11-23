@@ -18,6 +18,7 @@ public class LocalApplication {
     public final static int TERMINATE_INDEX = 3;
     public final static Region REGION = Region.US_WEST_2;
     public static final  String MANAGER = "manager";
+    //todo match name with manager
     public static final String REGISTRATION_QUEUE = "RegistrationQueue";
 
     private String inputFileName;

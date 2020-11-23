@@ -7,6 +7,8 @@ import software.amazon.awssdk.services.s3.model.*;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 
 public class WorkerMain {
@@ -14,8 +16,9 @@ public class WorkerMain {
     private static S3Client s3;
 
     public static void main(String[] args) {
+    }
 
-
+    private static void oldMain(String[] args) {
         if (args.length < 1) {
             System.out.println("AWS key must be inserted");
             return;
@@ -36,7 +39,6 @@ public class WorkerMain {
         }
 
 
-//
 //        Region region = Region.US_WEST_2;
 //        s3 = S3Client.builder().region(region).build();
 //
@@ -59,65 +61,68 @@ public class WorkerMain {
 //        } catch (IOException e) {
 //
 //        }
+    }
 
+    private static void checkImageParsing() {
+        Worker w = new Worker();
+        String[] arr = new String[]{
+        "http://ct.mob0.com/Fonts/CharacterMap/ocraextended.png",
+        "http://www.columbiamt.com/CMT-Marking-Stamps/images/OCR-A-Font.gif",
+        "http://files.microscan.com/Technology/OCR/ocr_font_examples.jpg",
+        "http://www.idautomation.com/ocr-a-and-ocr-b-fonts/new_sizes_ocr.png",
+        "http://www.barcodesoft.com/barcode-image/ocrbrep.png",
+        "http://www.selectric.org/selectric/fonts/ansi-ocr.gif",
+        "http://luc.devroye.org/OCR-A-Comparison-2009.jpg",
+        "http://www.identifont.com/samples/bitstream/OCRA.gif",
+        "http://www.columbiamt.com/CMT-Marking-Stamps/images/OCR-A-Font.gif",
+        "http://files.microscan.com/Technology/OCR/ocr_font_examples.jpg",
+        "http://www.idautomation.com/ocr-a-and-ocr-b-fonts/new_sizes_ocr.pnghttp://ct.mob0.com/Fonts/CharacterMap/ocraextended.png",
+        "http://www.columbiamt.com/CMT-Marking-Stamps/images/OCR-A-Font.gif",
+        "http://files.microscan.com/Technology/OCR/ocr_font_examples.jpg",
+        "http://www.idautomation.com/ocr-a-and-ocr-b-fonts/new_sizes_ocr.png",
+        "http://www.barcodesoft.com/barcode-image/ocrbrep.png",
+        "http://www.selectric.org/selectric/fonts/ansi-ocr.gif",
+        "http://luc.devroye.org/OCR-A-Comparison-2009.jpg",
+        "http://www.identifont.com/samples/bitstream/OCRA.gif",
+        "http://www.columbiamt.com/CMT-Marking-Stamps/images/OCR-A-Font.gif",
+        "http://files.microscan.com/Technology/OCR/ocr_font_examples.jpg",
+        "http://www.idautomation.com/ocr-a-and-ocr-b-fonts/new_sizes_ocr.png",
+        "http://www.barcodesoft.com/barcode-image/ocrbrep.png",
+        "http://www.selectric.org/selectric/fonts/ansi-ocr.gif",
+        "http://luc.devroye.org/OCR-A-Comparison-2009.jpg",
+        "http://www.identifont.com/samples/bitstream/OCRA.gif",
+        "http://ct.mob0.com/Fonts/CharacterMap/ocraextended-Character-Map.png",
+        "http://files.microscan.com/Technology/OCR/ocr_font_examples.jpg",
+        "http://www.idautomation.com/ocr-a-and-ocr-b-fonts/new_sizes_ocr.png",
+        "http://www.barcodesoft.com/barcode-image/ocrbrep.png",
+        "http://www.selectric.org/selectric/fonts/ansi-ocr.gif",
+        "http://luc.devroye.org/OCR-A-Comparison-2009.jpg",
+        "http://www.identifont.com/samples/bitstream/OCRA.gif",
+        "http://ct.mob0.com/Fonts/CharacterMap/ocraextended-Character-Map.png",
+        "http://www.barcodesoft.com/barcode-image/ocramapping.jpg",
+        "http://www.barcodesoft.com/barcode-image/ocrbrep.png",
+        "http://www.selectric.org/selectric/fonts/ansi-ocr.gif",
+        "http://luc.devroye.org/OCR-A-Comparison-2009.jpg",
+        "http://www.identifont.com/samples/bitstream/OCRA.gif",
+        "http://ct.mob0.com/Fonts/CharacterMap/ocraextended-Character-Map.png",
+        "http://files.microscan.com/Technology/OCR/ocr_font_examples.jpg",
+        "http://www.idautomation.com/ocr-a-and-ocr-b-fonts/new_sizes_ocr.png",
+        "http://www.barcodesoft.com/barcode-image/ocrbrep.png",
+        "http://www.selectric.org/selectric/fonts/ansi-ocr.gif",
+        "http://luc.devroye.org/OCR-A-Comparison-2009.jpg",
+        "http://www.identifont.com/samples/bitstream/OCRA.gif",
+        "http://ct.mob0.com/Fonts/CharacterMap/ocraextended-Character-Map.png",
+        "http://www.barcodesoft.com/barcode-image/ocramapping.jpg"
+};
 
-//        String[] arr = new String[]{
-//                "http://ct.mob0.com/Fonts/CharacterMap/ocraextended.png",
-//                "http://www.columbiamt.com/CMT-Marking-Stamps/images/OCR-A-Font.gif",
-//                "http://files.microscan.com/Technology/OCR/ocr_font_examples.jpg",
-//                "http://www.idautomation.com/ocr-a-and-ocr-b-fonts/new_sizes_ocr.png",
-//                "http://www.barcodesoft.com/barcode-image/ocrbrep.png",
-//                "http://www.selectric.org/selectric/fonts/ansi-ocr.gif",
-//                "http://luc.devroye.org/OCR-A-Comparison-2009.jpg",
-//                "http://www.identifont.com/samples/bitstream/OCRA.gif",
-//                "http://www.columbiamt.com/CMT-Marking-Stamps/images/OCR-A-Font.gif",
-//                "http://files.microscan.com/Technology/OCR/ocr_font_examples.jpg",
-//                "http://www.idautomation.com/ocr-a-and-ocr-b-fonts/new_sizes_ocr.pnghttp://ct.mob0.com/Fonts/CharacterMap/ocraextended.png",
-//                "http://www.columbiamt.com/CMT-Marking-Stamps/images/OCR-A-Font.gif",
-//                "http://files.microscan.com/Technology/OCR/ocr_font_examples.jpg",
-//                "http://www.idautomation.com/ocr-a-and-ocr-b-fonts/new_sizes_ocr.png",
-//                "http://www.barcodesoft.com/barcode-image/ocrbrep.png",
-//                "http://www.selectric.org/selectric/fonts/ansi-ocr.gif",
-//                "http://luc.devroye.org/OCR-A-Comparison-2009.jpg",
-//                "http://www.identifont.com/samples/bitstream/OCRA.gif",
-//                "http://www.columbiamt.com/CMT-Marking-Stamps/images/OCR-A-Font.gif",
-//                "http://files.microscan.com/Technology/OCR/ocr_font_examples.jpg",
-//                "http://www.idautomation.com/ocr-a-and-ocr-b-fonts/new_sizes_ocr.png",
-//                "http://www.barcodesoft.com/barcode-image/ocrbrep.png",
-//                "http://www.selectric.org/selectric/fonts/ansi-ocr.gif",
-//                "http://luc.devroye.org/OCR-A-Comparison-2009.jpg",
-//                "http://www.identifont.com/samples/bitstream/OCRA.gif",
-//                "http://ct.mob0.com/Fonts/CharacterMap/ocraextended-Character-Map.png",
-//                "http://files.microscan.com/Technology/OCR/ocr_font_examples.jpg",
-//                "http://www.idautomation.com/ocr-a-and-ocr-b-fonts/new_sizes_ocr.png",
-//                "http://www.barcodesoft.com/barcode-image/ocrbrep.png",
-//                "http://www.selectric.org/selectric/fonts/ansi-ocr.gif",
-//                "http://luc.devroye.org/OCR-A-Comparison-2009.jpg",
-//                "http://www.identifont.com/samples/bitstream/OCRA.gif",
-//                "http://ct.mob0.com/Fonts/CharacterMap/ocraextended-Character-Map.png",
-//                "http://www.barcodesoft.com/barcode-image/ocramapping.jpg",
-//                "http://www.barcodesoft.com/barcode-image/ocrbrep.png",
-//                "http://www.selectric.org/selectric/fonts/ansi-ocr.gif",
-//                "http://luc.devroye.org/OCR-A-Comparison-2009.jpg",
-//                "http://www.identifont.com/samples/bitstream/OCRA.gif",
-//                "http://ct.mob0.com/Fonts/CharacterMap/ocraextended-Character-Map.png",
-//                "http://files.microscan.com/Technology/OCR/ocr_font_examples.jpg",
-//                "http://www.idautomation.com/ocr-a-and-ocr-b-fonts/new_sizes_ocr.png",
-//                "http://www.barcodesoft.com/barcode-image/ocrbrep.png",
-//                "http://www.selectric.org/selectric/fonts/ansi-ocr.gif",
-//                "http://luc.devroye.org/OCR-A-Comparison-2009.jpg",
-//                "http://www.identifont.com/samples/bitstream/OCRA.gif",
-//                "http://ct.mob0.com/Fonts/CharacterMap/ocraextended-Character-Map.png",
-//                "http://www.barcodesoft.com/barcode-image/ocramapping.jpg"
-//        };
-
-
-//        for (String url : arr) {
-//            System.out.println();
-//            w.newImageTaskWithTessaract(url);
-//            System.out.println();
-//        }
-
+        Map<String,String> urlsWithParsing = new HashMap<>();
+        for (String url : arr) {
+            System.out.println();
+            String parsed = w.newImageTaskWithTessaract(url);
+            urlsWithParsing.put(url,parsed);
+        }
+        HtmlParserTemp htmlParserTemp = new HtmlParserTemp();
+        htmlParserTemp.parseListOfUrlAndTextToHTML(urlsWithParsing,"long_file");
     }
 
     public static void putProccessedDataInBacket(String url, String output) {

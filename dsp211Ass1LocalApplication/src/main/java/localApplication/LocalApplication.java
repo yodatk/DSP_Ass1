@@ -172,14 +172,16 @@ public class LocalApplication {
     }
 
 
-    public static void createEc2Instance(String name, String amiId, Ec2Client ec2) {
+    public static void createEc2Instance(String name, String ami_Id, Ec2Client ec2) {
         RunInstancesRequest runRequest = RunInstancesRequest.builder()
-                .imageId(amiId)
+                .imageId(ami_Id)
                 .instanceType(InstanceType.T1_MICRO)
                 .maxCount(1)
                 .minCount(1)
                 .build();
-        //toAdd the proper jar with .userData(Base64.getEncoder().encodeToString("java -jar path_to_jar".getBytes()))
+        //todo- toAdd the proper jar with .userData(Base64.getEncoder().encodeToString("script based on download the file from s3 and java -jar path_to_jar".getBytes()))
+        //todo to add credentials in IAM role with .iamInstanceProfile(IamInstanceProfileSpecification.builder()
+        //                        .arn(ARN).build())
 
         RunInstancesResponse response = ec2.runInstances(runRequest);
         String instanceId = response.instances().get(0).instanceId();
@@ -196,8 +198,8 @@ public class LocalApplication {
             ec2.createTags(tagRequest);
             System.out.printf(
                     "Successfully started EC2 Instance %s based on AMI %s",
-                    instanceId, amiId);
-            System.out.println("Successfully started EC2 Instance " + instanceId + " based on AMI " + amiId);
+                    instanceId, ami_Id);
+            System.out.println("Successfully started EC2 Instance " + instanceId + " based on AMI " + ami_Id);
 
         } catch (Ec2Exception e) {
             System.err.println(e.awsErrorDetails().errorMessage());

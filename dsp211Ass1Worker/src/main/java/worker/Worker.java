@@ -40,7 +40,10 @@ public class Worker {
             return tesseract.doOCR(toBufferedImage(image));
 
         } catch (TesseractException e) {// | URISyntaxException e) {
-            return e.getMessage();
+            return "Error with parsing: " + e.getMessage();
+        }
+        catch (NullPointerException e){
+            return "Image Not found: " + e.getMessage();
         }
     }
 

@@ -24,15 +24,16 @@ public class LocalApplication {
     public final static int OUTPUT_FILE_NAME_INDEX = 1;
     public final static int N_INDEX = 2;
     public final static int TERMINATE_INDEX = 3;
-    public final static Region REGION = Region.US_WEST_2;
+    public final static Region REGION = Region.US_EAST_1;
+    //TODO to match the region for all
     public static final String MANAGER = "manager";
     public static final String LOCALS_TO_MANAGER_SQS = "TASKS_FROM_LOCAL_QUEUE";
     public static final String LOCAL_ID = "localID";
     public static final String LOCAL_SQS_NAME = "localSqsName";
     public static final String S_3_BUCKET_NAME = "s3BucketName";
     public static final String S_3_BUCKET_KEY = "s3BucketKey";
-    //TODO create proper AMI
-    public static final String AMIID = "";
+    public static final String AMI_ID = "ami-06af1f9a5f7fe2e06";
+    public static final String MANAGER_ARN = "arn:aws:iam::192532717092:instance-profile/Manager-role";
 
     private String inputFileName;
     private String outputFileName;
@@ -111,14 +112,15 @@ public class LocalApplication {
     public void sendRegistrationMessage(SqsClient sqs_client, String app_name, String queue_name, String bucket_name, String file_name) {
         System.out.println("Sending registration message");
         Map<String, MessageAttributeValue> messageAttributes = new HashMap<>();
-        messageAttributes.put(LOCAL_ID, MessageAttributeValue.builder().stringValue(app_name).build());
-        messageAttributes.put(LOCAL_SQS_NAME, MessageAttributeValue.builder().stringValue(queue_name).build());
-        messageAttributes.put(S_3_BUCKET_NAME, MessageAttributeValue.builder().stringValue(bucket_name).build());
-        messageAttributes.put(S_3_BUCKET_KEY, MessageAttributeValue.builder().stringValue(file_name).build());
-        messageAttributes.put("N", MessageAttributeValue.builder().stringValue(Integer.toString(this.N)).build());
+        messageAttributes.put(LOCAL_ID, MessageAttributeValue.builder().dataType("String").stringValue(app_name).build());
+        messageAttributes.put(LOCAL_SQS_NAME, MessageAttributeValue.builder().dataType("String").stringValue(queue_name).build());
+        messageAttributes.put(S_3_BUCKET_NAME, MessageAttributeValue.builder().dataType("String").stringValue(bucket_name).build());
+        messageAttributes.put(S_3_BUCKET_KEY, MessageAttributeValue.builder().dataType("String").stringValue(file_name).build());
+        messageAttributes.put("N", MessageAttributeValue.builder().dataType("Number").stringValue(Integer.toString(this.N)).build());
         SendMessageRequest send_msg_request = SendMessageRequest.builder()
                 .queueUrl(this.getQueueUrl(sqs_client, LOCALS_TO_MANAGER_SQS))
                 .messageAttributes(messageAttributes)
+                .messageBody("body")
                 .build();
         sqs_client.sendMessage(send_msg_request);
     }
@@ -155,7 +157,7 @@ public class LocalApplication {
             } while (nextToken != null);
             if (!manager_is_running) {
                 System.out.println("Creating manager...");
-                createEc2Instance(MANAGER, AMIID, ec2);
+                createEc2Instance(MANAGER, AMI_ID, ec2);
                 HashMap<QueueAttributeName, String> attributes = new HashMap<>();
                 //attributes.put(QueueAttributeName.RECEIVE_MESSAGE_WAIT_TIME_SECONDS, "20");
                 CreateQueueRequest createQueueRequest = CreateQueueRequest.builder()
@@ -175,6 +177,8 @@ public class LocalApplication {
     public static void createEc2Instance(String name, String ami_Id, Ec2Client ec2) {
         RunInstancesRequest runRequest = RunInstancesRequest.builder()
                 .imageId(ami_Id)
+                .iamInstanceProfile(IamInstanceProfileSpecification.builder()
+                        .arn(MANAGER_ARN).build())
                 .instanceType(InstanceType.T1_MICRO)
                 .maxCount(1)
                 .minCount(1)
@@ -217,7 +221,7 @@ public class LocalApplication {
                 .build();
         s3.putObject(putObjectRequest, Paths.get(this.getInputFileName()));
 
-        System.out.println("Uploading file: " + file_name + " to bucket: " + bucket);
+        System.out.println("Uploaded file: " + file_name + " to bucket: " + bucket);
         return file_name;
     }
 
@@ -225,10 +229,6 @@ public class LocalApplication {
         s3.createBucket(CreateBucketRequest
                 .builder()
                 .bucket(bucketName)
-                .createBucketConfiguration(
-                        CreateBucketConfiguration.builder()
-                                .locationConstraint(REGION.id())
-                                .build())
                 .build());
 
         System.out.println(bucketName + " Created");

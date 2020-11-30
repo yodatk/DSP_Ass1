@@ -35,7 +35,7 @@ public class Manager {
     public static final String LOCAL_SQS_NAME = "localSqsName";
     public static final String S_3_BUCKET_NAME = "s3BucketName";
     public static final String S_3_BUCKET_KEY = "s3BucketKey";
-    public static final Region REGION = Region.US_WEST_2;
+    public static final Region REGION = Region.US_EAST_1;
     public static final String PARSED_TEXT = "parsedText";
     public static final String TEMP_FILE_PREFIX = "_tempFiles";
 

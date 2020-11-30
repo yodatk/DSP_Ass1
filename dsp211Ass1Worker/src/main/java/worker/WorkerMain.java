@@ -16,6 +16,8 @@ public class WorkerMain {
     private static S3Client s3;
 
     public static void main(String[] args) {
+        System.out.println("check check check check");
+
     }
 
     private static void oldMain(String[] args) {

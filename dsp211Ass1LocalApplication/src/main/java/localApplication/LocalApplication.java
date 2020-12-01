@@ -25,7 +25,7 @@ public class LocalApplication {
     public final static int N_INDEX = 2;
     public final static int TERMINATE_INDEX = 3;
     public final static Region REGION = Region.US_EAST_1;
-    //TODO to match the region for all
+
     public static final String MANAGER = "manager";
     public static final String LOCALS_TO_MANAGER_SQS = "TASKS_FROM_LOCAL_QUEUE";
     public static final String LOCAL_ID = "localID";
@@ -34,12 +34,15 @@ public class LocalApplication {
     public static final String S_3_BUCKET_KEY = "s3BucketKey";
     public static final String AMI_ID = "ami-06af1f9a5f7fe2e06";
     public static final String MANAGER_ARN = "arn:aws:iam::192532717092:instance-profile/Manager-role";
+    public static final String TERMINATE = "Terminate";
+    public static final String HTML_FILE = "HTML_File";
+
 
     private String inputFileName;
     private String outputFileName;
     private int N;
     private boolean isTerminate;
-//
+
 
     public LocalApplication(String[] args) {
         this.inputFileName = args[INPUT_FILE_NAME_INDEX];
@@ -85,7 +88,7 @@ public class LocalApplication {
                 if (m.body().startsWith("done")) {
                     receive_ans = true;
                     //todo- to match the names with the manger
-                    String HTML_file = m.attributesAsStrings().get("HTML_File");
+                    String HTML_file = m.attributesAsStrings().get(HTML_FILE);
                     s3.getObject(GetObjectRequest.builder().bucket(bucket).key(HTML_file).build(), ResponseTransformer.toFile(Paths.get(this.getOutputFileName())));
                     System.out.println("HTML file is parsed and ready");
                     break;
@@ -94,11 +97,11 @@ public class LocalApplication {
         }
         if (this.isTerminate) {
             System.out.println("Sending termination message");
-            SendMessageRequest send_msg_requset = SendMessageRequest.builder()
+            SendMessageRequest sendMessageRequest = SendMessageRequest.builder()
                     .queueUrl(this.getQueueUrl(sqs_client, LOCALS_TO_MANAGER_SQS))
-                    .messageBody("Terminate")
+                    .messageBody(TERMINATE)
                     .build();
-            sqs_client.sendMessage(send_msg_requset);
+            sqs_client.sendMessage(sendMessageRequest);
         }
     }
 
@@ -109,7 +112,7 @@ public class LocalApplication {
         return sqsClient.getQueueUrl(getQueueUrlRequest).queueUrl();
     }
 
-    public void sendRegistrationMessage(SqsClient sqs_client, String app_name, String queue_name, String bucket_name, String file_name) {
+    public void sendRegistrationMessage(SqsClient sqs, String app_name, String queue_name, String bucket_name, String file_name) {
         System.out.println("Sending registration message");
         Map<String, MessageAttributeValue> messageAttributes = new HashMap<>();
         messageAttributes.put(LOCAL_ID, MessageAttributeValue.builder().dataType("String").stringValue(app_name).build());
@@ -117,12 +120,13 @@ public class LocalApplication {
         messageAttributes.put(S_3_BUCKET_NAME, MessageAttributeValue.builder().dataType("String").stringValue(bucket_name).build());
         messageAttributes.put(S_3_BUCKET_KEY, MessageAttributeValue.builder().dataType("String").stringValue(file_name).build());
         messageAttributes.put("N", MessageAttributeValue.builder().dataType("Number").stringValue(Integer.toString(this.N)).build());
-        SendMessageRequest send_msg_request = SendMessageRequest.builder()
-                .queueUrl(this.getQueueUrl(sqs_client, LOCALS_TO_MANAGER_SQS))
+        SendMessageRequest sendMessageRequest = SendMessageRequest.builder()
+                .queueUrl(this.getQueueUrl(sqs, LOCALS_TO_MANAGER_SQS))
                 .messageAttributes(messageAttributes)
                 .messageBody("body")
                 .build();
-        sqs_client.sendMessage(send_msg_request);
+        sqs.sendMessage(sendMessageRequest);
+
     }
 
     public void createLocalQueue(SqsClient sqsClient, String local_name_queue) {
@@ -174,7 +178,9 @@ public class LocalApplication {
     }
 
 
-    public static void createEc2Instance(String name, String ami_Id, Ec2Client ec2) {
+
+
+    public void createEc2Instance(String name, String ami_Id, Ec2Client ec2) {
         RunInstancesRequest runRequest = RunInstancesRequest.builder()
                 .imageId(ami_Id)
                 .iamInstanceProfile(IamInstanceProfileSpecification.builder()
@@ -225,7 +231,7 @@ public class LocalApplication {
         return file_name;
     }
 
-    public static void createBucket(String bucketName, S3Client s3) {
+    public void createBucket(String bucketName, S3Client s3) {
         s3.createBucket(CreateBucketRequest
                 .builder()
                 .bucket(bucketName)

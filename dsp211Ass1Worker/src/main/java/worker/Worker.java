@@ -1,24 +1,23 @@
 package worker;
 
-import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.*;
+import software.amazon.awssdk.services.ec2.Ec2Client;
+import software.amazon.awssdk.services.ec2.model.*;
 import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.*;
+import software.amazon.awssdk.services.sqs.model.UnsupportedOperationException;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 
 public class Worker {
 
     public static final String WOKERS_SQS = "TO_DO_QUEUE"; // sqs for workers
     public static final String WORKERS_TO_MANAGER_SQS = "COMPLETED_IMAGES_QUEUE"; // sqs for MANAGER to get messages from workers
     public static final Region REGION = Region.US_EAST_1;
+    public static final int IMAGE_PARSING_TIME_OUT_IN_SEC = 300;
+
 
     public static final String PARSED_TEXT = "parsedText";
     public static final String LOCAL_ID = "localID";
@@ -26,7 +25,6 @@ public class Worker {
 
     private String queueWorkersUrl;
     private String queueWorkersToManagersUrl;
-    private static S3Client s3;
     private SqsClient sqs;
     private OCRParser ocrWorker;
 
@@ -52,34 +50,57 @@ public class Worker {
         while (true) {
             // checking for tasks from messages queues
             ReceiveMessageRequest receiveMessagesFromManager = ReceiveMessageRequest.builder()
-                    .queueUrl(queueWorkersToManagersUrl)
+                    .queueUrl(queueWorkersUrl)
+                    .visibilityTimeout(IMAGE_PARSING_TIME_OUT_IN_SEC)
                     .maxNumberOfMessages(1)
                     .build();
             List<Message> tasksFromManager = this.sqs.receiveMessage(receiveMessagesFromManager).messages();
             for (Message msg : tasksFromManager) {
                 // suppose to only one message if at all
+
                 Map<String, String> givenAttributes = msg.attributesAsStrings();
                 String localId = givenAttributes.get(LOCAL_ID);
                 String imagerUrl = givenAttributes.get(IMAGE_URL);
                 // parsing image
-                String parsedText = this.ocrWorker.newImageTaskWithTessaract(imagerUrl);
+                String parsedText = this.ocrWorker.newImageTaskWithTessaract(imagerUrl,localId);
 
                 // after image is proccessed-> sending result to manager
                 Map<String, MessageAttributeValue> attr = new HashMap<>();
                 attr.put(LOCAL_ID, MessageAttributeValue.builder().stringValue(localId).build());
                 attr.put(IMAGE_URL, MessageAttributeValue.builder().stringValue(imagerUrl).build());
                 attr.put(PARSED_TEXT, MessageAttributeValue.builder().stringValue(parsedText).build());
-                SendMessageRequest sendMessageRequest = SendMessageRequest.builder()
-                        .queueUrl(queueWorkersToManagersUrl)
-                        .messageBody(localId + " " + imagerUrl)
-                        .messageAttributes(attr)
-                        .delaySeconds(5)
-                        .build();
-                sqs.sendMessage(sendMessageRequest);
+                boolean success = false;
+                long startTime = System.currentTimeMillis();
+                // if didn't succeed yet, and time out hasn't come yet
+                while (!success && System.currentTimeMillis() - startTime > 100000) {
+                    try {
+                        SendMessageRequest sendMessageRequest = SendMessageRequest.builder()
+                                .queueUrl(queueWorkersToManagersUrl)
+                                .messageBody(localId + " " + imagerUrl)
+                                .messageAttributes(attr)
+                                .delaySeconds(5)
+                                .build();
+                        SendMessageResponse response = sqs.sendMessage(sendMessageRequest);
+                        if (response.sdkHttpResponse().isSuccessful()) {
+                            success = true;
+                            DeleteMessageRequest deleteMessageRequest = DeleteMessageRequest.builder()
+                                    .queueUrl(queueWorkersUrl)
+                                    .receiptHandle(msg.receiptHandle())
+                                    .build();
+                            sqs.deleteMessage(deleteMessageRequest);
+                        }
+                    } catch (InvalidMessageContentsException | UnsupportedOperationException e) {
+                        System.out.println("Error found while sending the message: ");
+                        e.printStackTrace();
+                        success = false;
+                    }
+                }
             }
 
         }
     }
+
+
 
 
 // region old

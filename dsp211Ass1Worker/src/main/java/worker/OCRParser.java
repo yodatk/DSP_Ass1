@@ -17,8 +17,7 @@ import javax.imageio.ImageIO;
 public class OCRParser {
 
 
-
-    public String newImageTaskWithTessaract(String urlString) {
+    public String newImageTaskWithTessaract(String urlString, String localId) {
         System.out.println(urlString);
 
         try {
@@ -42,10 +41,9 @@ public class OCRParser {
             return tesseract.doOCR(toBufferedImage(image));
 
         } catch (TesseractException e) {// | URISyntaxException e) {
-            return "Error with parsing: " + e.getMessage();
-        }
-        catch (NullPointerException e){
-            return "Image Not found: " + e.getMessage();
+            return localId + "_inputfile.txt: Error with parsing: " + e.getMessage();
+        } catch (NullPointerException e) {
+            return localId + "_inputfile.txt: Image Not found: " + e.getMessage();
         }
     }
 

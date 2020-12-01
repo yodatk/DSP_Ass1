@@ -155,13 +155,13 @@ public class Manager {
                             Map<String, MessageAttributeValue> attr = new HashMap<>();
                             attr.put(LOCAL_ID, MessageAttributeValue.builder().stringValue(localId).build());
                             attr.put(IMAGE_URL, MessageAttributeValue.builder().stringValue(currentUrl).build());
-                            SendMessageRequest send_msg_request = SendMessageRequest.builder()
+                            SendMessageRequest sendMsgRequest = SendMessageRequest.builder()
                                     .queueUrl(queueWorkersUrl)
                                     .messageBody(localId + " " + currentUrl)
                                     .messageAttributes(attr)
                                     .delaySeconds(5)
                                     .build();
-                            sqs.sendMessage(send_msg_request);
+                            sqs.sendMessage(sendMsgRequest);
                             // todo check if message arrives before increasing
                             currentLocalImagesCounter++;
                         }
@@ -169,7 +169,7 @@ public class Manager {
                         // initilize workers:
                         int numberOfWorkersToAdd = (currentLocalImagesCounter / n) - numberOfActiveWorkers;
                         if (numberOfWorkersToAdd > 0) {
-                            //add workers
+                            // todo add workers
 
                         }
 
@@ -191,6 +191,7 @@ public class Manager {
             // after reviewing all messages from local -> check for finished tasks
             ReceiveMessageRequest receiveRequestsFromWorkers = ReceiveMessageRequest.builder()
                     .queueUrl(queueWorkersToManagersUrl)
+                    .maxNumberOfMessages(10)
                     .build();
             List<Message> messagesFromWorkers = sqs.receiveMessage(receiveRequestsFromWorkers).messages();
             for (Message m : messagesFromWorkers) {

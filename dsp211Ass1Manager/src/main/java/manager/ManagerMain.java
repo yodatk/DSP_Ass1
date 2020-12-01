@@ -23,10 +23,11 @@ public class ManagerMain {
 
 
         String awsKey = args[0];
-        //String imagesLocationInS3 = args[1];
+        String imagesLocationInS3 = args[1];
         int n = Integer.parseInt(args[1]);
 
         Manager manager = new Manager(n, awsKey);
+        manager.run();
 
     }
 

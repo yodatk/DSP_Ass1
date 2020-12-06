@@ -41,8 +41,8 @@
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>sqs</artifactId>
         </dependency>
-    </dependencies>
 
+    </dependencies>
 
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>

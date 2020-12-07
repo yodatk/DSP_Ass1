@@ -13,6 +13,7 @@ import software.amazon.awssdk.services.sqs.model.*;
 
 
 import java.nio.file.Paths;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +37,13 @@ public class LocalApplication {
     public static final String MANAGER_ARN = "arn:aws:iam::192532717092:instance-profile/Manager-role";
     public static final String TERMINATE = "Terminate";
     public static final String HTML_FILE = "HTML_File";
+    public static final String USER_DATA_MANAGER =
+            "#!/bin/bash\n" +
+            "sudo mkdir /home/ass/\n" +
+            "sudo aws s3 cp s3://bucketforjar/dsp211Ass1Manager-1.0-SNAPSHOT-shaded.jar /home/ass/\n" +
+            "sudo /usr/bin/java -jar /home/ass/dsp211Ass1Manager-1.0-SNAPSHOT-shaded.jar\n";
+//            "shutdown -h now";
+
 
 
     private String inputFileName;
@@ -65,7 +73,6 @@ public class LocalApplication {
         System.out.println("ALL GOOD...");
         String app_name = "LocalApp" + System.currentTimeMillis();
         String queue_name = app_name + "Queue";
-        //todo - to check if we can put all locals on the same bucket
         final String bucket = "bucket" + System.currentTimeMillis();
         Ec2Client ec2 = Ec2Client.builder().region(REGION).build();
         SqsClient sqs_client = SqsClient.builder().region(REGION).build();
@@ -89,7 +96,6 @@ public class LocalApplication {
             for (Message m : messages) {
                 if (m.body().startsWith("html is done")) {
                     receive_ans = true;
-                    //todo- to match protocol with the manger
                     Map<String, MessageAttributeValue> attributes = m.messageAttributes();
                     String HTML_file = attributes.get(HTML_FILE).stringValue();
                     s3.getObject(GetObjectRequest.builder().bucket(bucket).key(HTML_file).build(), ResponseTransformer.toFile(Paths.get(this.getOutputFileName() + ".html")));
@@ -199,7 +205,8 @@ public class LocalApplication {
                             if (tag.value().equals(MANAGER)) {
                                 System.out.println("manager is already running");
                                 manager_is_running = true;
-                                if (instance.state().name().toString().toLowerCase().equals("terminated")) {
+                                if (instance.state().name().toString().toLowerCase().equals("terminated") ||
+                                        instance.state().name().toString().toLowerCase().equals("stopped")) {
                                     System.out.println("but is state is " + instance.state().name());
                                     manager_is_running = false;
                                     continue;
@@ -238,10 +245,10 @@ public class LocalApplication {
                 .iamInstanceProfile(IamInstanceProfileSpecification.builder()
                         .arn(MANAGER_ARN).build())
                 .instanceType(InstanceType.T2_MICRO)
+                .userData(Base64.getEncoder().encodeToString(USER_DATA_MANAGER.getBytes()))
                 .maxCount(1)
                 .minCount(1)
                 .build();
-        //todo- toAdd the proper jar with .userData(Base64.getEncoder().encodeToString("script based on download the file from s3 and java -jar path_to_jar".getBytes()))
 
         RunInstancesResponse response = ec2.runInstances(runRequest);
         String instanceId = response.instances().get(0).instanceId();

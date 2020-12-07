@@ -224,7 +224,7 @@ public class LocalApplication {
     private void createManagerIfNotRunning(Ec2Client ec2, SqsClient sqsClient) {
         System.out.println("checking if manager exist...");
 
-        boolean manager_is_running = false;
+        boolean managerIsRunning = false;
         String nextToken = null;
 
         try {
@@ -237,11 +237,11 @@ public class LocalApplication {
                     for (Instance instance : reservation.instances()) {
                         for (Tag tag : instance.tags()) {
                             if (tag.value().equals(MANAGER)) {
-                                manager_is_running = true;
+                                managerIsRunning = true;
                                 if (instance.state().name().toString().toLowerCase().equals("terminated") ||
                                         instance.state().name().toString().toLowerCase().equals("stopped")) {
                                     // System.out.println("but is state is " + instance.state().name());
-                                    manager_is_running = false;
+                                    managerIsRunning = false;
                                     continue;
                                 }
 
@@ -249,13 +249,13 @@ public class LocalApplication {
                                 break;
                             }
                         }
-                        if (manager_is_running) break;
+                        if (managerIsRunning) break;
                     }
-                    if (manager_is_running) break;
+                    if (managerIsRunning) break;
                 }
                 nextToken = response.nextToken();
             } while (nextToken != null);
-            if (!manager_is_running) {
+            if (!managerIsRunning) {
                 System.out.println("Creating manager...");
                 createEc2Instance(MANAGER, AMI_ID, ec2);
                 HashMap<QueueAttributeName, String> attributes = new HashMap<>();

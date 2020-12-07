@@ -41,8 +41,8 @@ public class LocalApplication {
                     "#!/bin/bash\n" +
                     "sudo mkdir /home/ass/\n" +
                     "sudo aws s3 cp s3://bucketforjar/Manager.jar /home/ass/\n" +
-                    "sudo /usr/bin/java -jar /home/ass/Manager.jar\n";
-//            "shutdown -h now";
+                    "sudo /usr/bin/java -jar /home/ass/Manager.jar\n" +
+                    "shutdown -h now";
 
 
     private String inputFileName;

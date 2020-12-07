@@ -266,21 +266,16 @@ public class LocalApplication {
                     for (Instance instance : reservation.instances()) {
                         for (Tag tag : instance.tags()) {
                             if (tag.value().equals(MANAGER)) {
-                                managerIsRunning = true;
-                                if (instance.state().name().toString().toLowerCase().equals("terminated") ||
-                                        instance.state().name().toString().toLowerCase().equals("stopped")) {
+                                //managerIsRunning = true;
+                                if (!instance.state().name().toString().toLowerCase().equals("terminated") &&
+                                        !instance.state().name().toString().toLowerCase().equals("stopped")) {
                                     // System.out.println("but is state is " + instance.state().name());
-                                    managerIsRunning = false;
-                                    continue;
+                                    managerIsRunning = true;
+                                    break;
                                 }
-
-
-                                break;
                             }
                         }
-                        if (managerIsRunning) break;
                     }
-                    if (managerIsRunning) break;
                 }
                 nextToken = response.nextToken();
             } while (nextToken != null);

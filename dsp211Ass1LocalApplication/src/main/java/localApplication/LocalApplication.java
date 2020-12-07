@@ -237,14 +237,15 @@ public class LocalApplication {
                     for (Instance instance : reservation.instances()) {
                         for (Tag tag : instance.tags()) {
                             if (tag.value().equals(MANAGER)) {
-                                System.out.println("manager is already running");
                                 manager_is_running = true;
                                 if (instance.state().name().toString().toLowerCase().equals("terminated") ||
                                         instance.state().name().toString().toLowerCase().equals("stopped")) {
-                                    System.out.println("but is state is " + instance.state().name());
+                                    // System.out.println("but is state is " + instance.state().name());
                                     manager_is_running = false;
                                     continue;
                                 }
+
+
                                 break;
                             }
                         }
@@ -265,6 +266,10 @@ public class LocalApplication {
                 sqsClient.createQueue(createQueueRequest);
                 System.out.println("Manager is Running");
             }
+            else{
+                System.out.println("Manager is already running");
+            }
+
 
         } catch (Ec2Exception e) {
             System.err.println(e.awsErrorDetails().errorMessage());

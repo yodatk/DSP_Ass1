@@ -24,6 +24,9 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.Collectors;
 
 public class Manager implements Runnable {
     public static final String WOKERS_SQS = "TO_DO_QUEUE"; // sqs for workers
@@ -50,11 +53,12 @@ public class Manager implements Runnable {
     public static final String USER_DATA_WORKER =
             "#!/bin/bash\n" +
                     "sudo mkdir /home/ass/\n" +
-                    "sudo aws s3 cp s3://bucketforjar/Worker-With-100.jar /home/ass/\n" +
-                    "sudo /usr/bin/java -jar -Xmx1g /home/ass/Worker-With-100.jar\n";
+                    "sudo aws s3 cp s3://bucketforjar/Worker-jar.jar /home/ass/\n" +
+                    "sudo /usr/bin/java -jar -Xmx1g /home/ass/Worker-jar.jar\n";
     public static final int MAX_IMG_PER_LOCAL = 100;
     public static final int DELIMITER_BETWEEN_URL_TO_PARSE = 5;
     public static final int DELIMITER_BETWEEN_PARSINGS = 6;
+    ReadWriteLock readWriteLock = new ReentrantReadWriteLock(true);
 
 
     /**
@@ -93,11 +97,11 @@ public class Manager implements Runnable {
     /**
      * map with localId keys to the number of tasks remains to parse values
      */
-    private final Map<String, Integer> localToNumberOfTasksRemains;
+    private final Map<String, AtomicInteger> localToNumberOfTasksRemains;
     /**
      * map with localId keys to number of temp file save for that local program values
      */
-    private final Map<String, Integer> localTempFileName;
+    private final Map<String, AtomicInteger> localTempFileName;
     /**
      * map with localId keys to Map values of image url to Parsed text from that image
      */
@@ -237,124 +241,8 @@ public class Manager implements Runnable {
 
     }
 
-    private void checkFinishedTasksToLocalsWithoutThreads() {
-        for (Map.Entry<String, Integer> entry : this.localToNumberOfTasksRemains.entrySet()) {
-            if (entry.getValue() == 0) {
-                //this.finishLocalAndCreateHTML(entry.getKey());
-                String localId = entry.getKey();
-                //adding message to sqs
-                boolean success = false;
-                while (!success) {
-
-                    Map<String, MessageAttributeValue> messageAttributes = new HashMap<>();
-                    //int numberOfFiles = localTempFileName.get(localId);
-                    StringBuffer stringBuilder = this.localParsedImages.get(localId).getKey();
-                    if (!stringBuilder.toString().isEmpty()) {
-                        //numberOfFiles++;
-                        // size of map is getting too big -> upload all current data to s3 to merge later
-//
-//                        StringBuilder builder = new StringBuilder();
-//                        for (Map.Entry<String, String> currentParsedEntry : currentLocalMap.entrySet()) {
-//                            builder.append(currentParsedEntry.getKey()).append(((char) 5)).append(currentParsedEntry.getValue().replace("\n",Character.toString((char)6))).append("\n");
-//                        }
-                        // Put Object
-                        s3.putObject(PutObjectRequest.builder().bucket(this.localBuckets.get(localId)).key(localId + TEMP_FILE_PREFIX + localTempFileName.get(localId))
-                                .build(), RequestBody.fromString(stringBuilder.toString()));
-                        int increment = this.localTempFileName.get(localId) + 1;
-                        this.localTempFileName.put(localId, increment);
-
-                    }
-                    String numOfFilesInString = Integer.toString(localTempFileName.get(localId));
-                    messageAttributes.put(NUM_OF_FILES, MessageAttributeValue.builder().dataType("String").stringValue(numOfFilesInString).build());
-                    SendMessageRequest sendMessageRequest = SendMessageRequest.builder()
-                            .queueUrl(this.getQueueUrl(sqs, this.localQueues.get(localId)))
-                            .messageAttributes(messageAttributes)
-                            .messageBody("work is done")
-                            .build();
-                    SendMessageResponse res = sqs.sendMessage(sendMessageRequest);
-                    if (res.sdkHttpResponse().isSuccessful()) {
-                        success = true;
-                    }
-
-                }
-                this.localToNumberOfTasksRemains.remove(localId);
-                this.localTempFileName.remove(localId);
-                this.localQueues.remove(localId);
-                this.localBuckets.remove(localId);
-                this.localParsedImages.remove(localId);
-            }
-        }
-    }
-
-    private void checkDoneTasksFromWorkersWithoutThreads() {
-        // after reviewing all messages from local -> check for finished tasks
-
-        ReceiveMessageRequest receiveRequestsFromWorkers = ReceiveMessageRequest.builder()
-                .queueUrl(queueWorkersToManagersUrl)
-                .maxNumberOfMessages(10)
-                .messageAttributeNames("All")
-                .build();
-        List<Message> messagesFromWorkers = sqs.receiveMessage(receiveRequestsFromWorkers).messages();
-        for (Message m : messagesFromWorkers) {
-            Map<String, MessageAttributeValue> attributes = m.messageAttributes();
-            String localId = attributes.get(LOCAL_ID).stringValue();
-            String imageUrl = attributes.get(IMAGE_URL).stringValue();
-            String parsedText = attributes.get(PARSED_TEXT).stringValue();
-
-
-            StringBuffer stringBuilder = this.localParsedImages.get(localId).getKey();
-            AtomicInteger amountOfImages = this.localParsedImages.get(localId).getValue();
-            stringBuilder.append(imageUrl).append(((char) DELIMITER_BETWEEN_URL_TO_PARSE)).append(parsedText.replace("\n", Character.toString((char) DELIMITER_BETWEEN_PARSINGS))).append("\n");
-            amountOfImages.getAndIncrement();
-            System.out.println("added image: " + imageUrl);
-            if (amountOfImages.get() > MAX_IMG_PER_LOCAL) {
-                // size of map is getting too big -> upload all current data to s3 to merge later
-
-//                StringBuilder builder = new StringBuilder();
-//                for (Map.Entry<String, String> entry : currentLocalMap.entrySet()) {
-//                    builder.append(entry.getKey()).append(((char) 5)).append(entry.getValue().replace("\n",Character.toString((char)6))).append("\n");
-//                }
-                // Put Object
-                System.out.println("reached 100 limit for " + localId + ". buffer is: \n" + stringBuilder.toString());
-                s3.putObject(PutObjectRequest.builder().bucket(this.localBuckets.get(localId)).key(localId + TEMP_FILE_PREFIX + this.localTempFileName.get(localId))
-                        .build(), RequestBody.fromString(stringBuilder.toString()));
-                int increment = this.localTempFileName.get(localId) + 1;
-                this.localTempFileName.put(localId, increment);
-                this.localParsedImages.put(localId, new Pair<>(new StringBuffer(), new AtomicInteger(0)));
-
-            }
-
-
-            //delete the message m from sqs
-            DeleteMessageRequest deleteRequest = DeleteMessageRequest.builder()
-                    .queueUrl(queueWorkersToManagersUrl)
-                    .receiptHandle(m.receiptHandle())
-                    .build();
-            sqs.deleteMessage(deleteRequest);
-            int temp = this.localToNumberOfTasksRemains.get(localId);
-            this.localToNumberOfTasksRemains.put(localId, temp - 1);
-            System.out.println("tasks remained: " + this.localToNumberOfTasksRemains.get(localId));
-        }
-
-
-    }
-
-
-    private void checkDoneTasksFromWorkers() {
-        // after reviewing all messages from local -> check for finished tasks
-        while (!isTerminated.get() || !localToNumberOfTasksRemains.isEmpty()) {
-            checkDoneTasksFromWorkersWithoutThreads();
-        }
-
-    }
-
-    private void initLocalTask() {
-        while (!this.isTerminated.get()) {
-            initLocalTasksWithoutThreads();
-        }
-    }
-
     private void initLocalTasksWithoutThreads() {
+
         ReceiveMessageRequest receiveRequestsFromLocals = ReceiveMessageRequest.builder()
                 .queueUrl(queueLocalsToManagersUrl)
                 .maxNumberOfMessages(10)
@@ -378,13 +266,14 @@ public class Manager implements Runnable {
             int currentN = Integer.parseInt(attributes.get(N).stringValue());
             //Integer N could be different from local to local
             //String s3BucketFileName = m.attributesAsStrings().get("s3BucketFileName");
-            this.localToNumberOfTasksRemains.put(localId, numberOfUrls);
+            readWriteLock.writeLock().lock();
+            this.localToNumberOfTasksRemains.put(localId, new AtomicInteger(numberOfUrls));
 
             this.localQueues.put(localId, localSqsName);
-            this.localTempFileName.put(localId, 0);
+            this.localTempFileName.put(localId, new AtomicInteger(0));
             this.localParsedImages.put(localId, new Pair<>(new StringBuffer(), new AtomicInteger(0)));
             this.localBuckets.put(localId, s3BucketName);
-
+            readWriteLock.writeLock().unlock();
             s3.getObject(GetObjectRequest.builder().bucket(s3BucketName).key(s3BucketKey).build(),
                     ResponseTransformer.toFile(Paths.get(localId + "_inputfile.txt")));
             //int currentLocalImagesCounter = 0;
@@ -430,7 +319,6 @@ public class Manager implements Runnable {
                     List<String> newWorkersList = this.createWorkers(numberOfWorkersToAdd);
                     this.workersEC2Ids.addAll(newWorkersList);
                     this.numberOfActiveWorkers.getAndSet(this.workersEC2Ids.size());
-
                 }
 
             } catch (IOException e) {
@@ -449,6 +337,139 @@ public class Manager implements Runnable {
             sqs.deleteMessage(deleteRequest);
         }
     }
+
+    private void checkDoneTasksFromWorkersWithoutThreads() {
+        // after reviewing all messages from local -> check for finished tasks
+
+        ReceiveMessageRequest receiveRequestsFromWorkers = ReceiveMessageRequest.builder()
+                .queueUrl(queueWorkersToManagersUrl)
+                .maxNumberOfMessages(10)
+                .messageAttributeNames("All")
+                .build();
+        List<Message> messagesFromWorkers = sqs.receiveMessage(receiveRequestsFromWorkers).messages();
+        for (Message m : messagesFromWorkers) {
+            Map<String, MessageAttributeValue> attributes = m.messageAttributes();
+            String localId = attributes.get(LOCAL_ID).stringValue();
+            String imageUrl = attributes.get(IMAGE_URL).stringValue();
+            String parsedText = attributes.get(PARSED_TEXT).stringValue();
+
+            readWriteLock.writeLock().lock();
+            StringBuffer stringBuilder = this.localParsedImages.get(localId).getKey();
+            AtomicInteger amountOfImages = this.localParsedImages.get(localId).getValue();
+            stringBuilder.append(imageUrl).append(((char) DELIMITER_BETWEEN_URL_TO_PARSE)).append(parsedText.replace("\n", Character.toString((char) DELIMITER_BETWEEN_PARSINGS))).append("\n");
+            amountOfImages.getAndIncrement();
+            System.out.println("added image: " + imageUrl);
+            if (amountOfImages.get() > MAX_IMG_PER_LOCAL) {
+                // size of map is getting too big -> upload all current data to s3 to merge later
+
+//                StringBuilder builder = new StringBuilder();
+//                for (Map.Entry<String, String> entry : currentLocalMap.entrySet()) {
+//                    builder.append(entry.getKey()).append(((char) 5)).append(entry.getValue().replace("\n",Character.toString((char)6))).append("\n");
+//                }
+                // Put Object
+                System.out.println("reached 100 limit for " + localId + ". buffer is: \n" + stringBuilder.toString());
+                s3.putObject(PutObjectRequest.builder().bucket(this.localBuckets.get(localId)).key(localId + TEMP_FILE_PREFIX + this.localTempFileName.get(localId))
+                        .build(), RequestBody.fromString(stringBuilder.toString()));
+                this.localTempFileName.get(localId).getAndIncrement();
+                //this.localTempFileName.put(localId, increment);
+                this.localParsedImages.put(localId, new Pair<>(new StringBuffer(), new AtomicInteger(0)));
+
+            }
+
+
+            //delete the message m from sqs
+            DeleteMessageRequest deleteRequest = DeleteMessageRequest.builder()
+                    .queueUrl(queueWorkersToManagersUrl)
+                    .receiptHandle(m.receiptHandle())
+                    .build();
+            sqs.deleteMessage(deleteRequest);
+            this.localToNumberOfTasksRemains.get(localId).getAndDecrement();
+//            this.localToNumberOfTasksRemains.put(localId, temp - 1);
+            System.out.println("tasks remained for " + localId + ": " + this.localToNumberOfTasksRemains.get(localId));
+            readWriteLock.writeLock().unlock();
+        }
+
+
+    }
+
+
+    private void checkFinishedTasksToLocalsWithoutThreads() {
+        readWriteLock.readLock().lock();
+
+        Map<String, AtomicInteger> doneTasks = this.localToNumberOfTasksRemains.entrySet()
+                .stream()
+                .filter(entry -> entry.getValue().get() == 0)
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        readWriteLock.readLock().unlock();
+
+        for (Map.Entry<String, AtomicInteger> entry : doneTasks.entrySet()) {
+//            if (entry.getValue() == 0) {
+            //this.finishLocalAndCreateHTML(entry.getKey());
+            String localId = entry.getKey();
+            //adding message to sqs
+            boolean success = false;
+            while (!success) {
+
+                Map<String, MessageAttributeValue> messageAttributes = new HashMap<>();
+                //int numberOfFiles = localTempFileName.get(localId);
+                StringBuffer stringBuilder = this.localParsedImages.get(localId).getKey();
+                if (!stringBuilder.toString().isEmpty()) {
+                    //numberOfFiles++;
+                    // size of map is getting too big -> upload all current data to s3 to merge later
+//
+//                        StringBuilder builder = new StringBuilder();
+//                        for (Map.Entry<String, String> currentParsedEntry : currentLocalMap.entrySet()) {
+//                            builder.append(currentParsedEntry.getKey()).append(((char) 5)).append(currentParsedEntry.getValue().replace("\n",Character.toString((char)6))).append("\n");
+//                        }
+                    // Put Object
+                    s3.putObject(PutObjectRequest.builder().bucket(this.localBuckets.get(localId)).key(localId + TEMP_FILE_PREFIX + localTempFileName.get(localId))
+                            .build(), RequestBody.fromString(stringBuilder.toString()));
+                    this.readWriteLock.writeLock().lock();
+                    this.localTempFileName.get(localId).getAndIncrement();
+                    this.readWriteLock.writeLock().unlock();
+                    //this.localTempFileName.put(localId, increment);
+
+                }
+                String numOfFilesInString = Integer.toString(localTempFileName.get(localId).get());
+                messageAttributes.put(NUM_OF_FILES, MessageAttributeValue.builder().dataType("String").stringValue(numOfFilesInString).build());
+                SendMessageRequest sendMessageRequest = SendMessageRequest.builder()
+                        .queueUrl(this.getQueueUrl(sqs, this.localQueues.get(localId)))
+                        .messageAttributes(messageAttributes)
+                        .messageBody("work is done")
+                        .build();
+                SendMessageResponse res = sqs.sendMessage(sendMessageRequest);
+                if (res.sdkHttpResponse().isSuccessful()) {
+                    success = true;
+                }
+
+            }
+
+            readWriteLock.writeLock().lock();
+            this.localToNumberOfTasksRemains.remove(localId);
+            this.localTempFileName.remove(localId);
+            this.localQueues.remove(localId);
+            this.localBuckets.remove(localId);
+            this.localParsedImages.remove(localId);
+            readWriteLock.writeLock().unlock();
+        }
+
+    }
+
+
+    private void checkDoneTasksFromWorkers() {
+        // after reviewing all messages from local -> check for finished tasks
+        while (!isTerminated.get() || !localToNumberOfTasksRemains.isEmpty()) {
+            checkDoneTasksFromWorkersWithoutThreads();
+        }
+
+    }
+
+    private void initLocalTask() {
+        while (!this.isTerminated.get()) {
+            initLocalTasksWithoutThreads();
+        }
+    }
+
 
     /**
      * terminate every instance of worker

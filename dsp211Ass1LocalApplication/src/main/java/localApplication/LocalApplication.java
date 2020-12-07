@@ -38,12 +38,12 @@ public class LocalApplication {
     public static final String HTML_FILE = "HTML_File";
     public static final String NUMBER_OF_URLS = "numberOfUrls";
     public static final String TEMP_FILE_PREFIX = "tempfiles";
-    public static final String USER_DATA_MANAGER = "";
-//            "#!/bin/bash\n" +
-//                    "sudo mkdir /home/ass/\n" +
-//                    "sudo aws s3 cp s3://bucketforjar/Manager.jar /home/ass/\n" +
-//                    "sudo /usr/bin/java -jar /home/ass/Manager.jar\n" +
-//                    "shutdown -h now";
+    public static final String USER_DATA_MANAGER =
+            "#!/bin/bash\n" +
+                    "sudo mkdir /home/ass/\n" +
+                    "sudo aws s3 cp s3://bucketforjar/Manager.jar /home/ass/\n" +
+                    "sudo /usr/bin/java -jar /home/ass/Manager.jar\n" +
+                    "shutdown -h now";
 
 
     private String inputFileName;

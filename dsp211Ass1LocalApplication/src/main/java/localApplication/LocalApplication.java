@@ -12,11 +12,10 @@ import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.*;
 
 
+import java.io.File;
+import java.io.InputStream;
 import java.nio.file.Paths;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 
 public class LocalApplication {
@@ -26,7 +25,7 @@ public class LocalApplication {
     public final static int N_INDEX = 2;
     public final static int TERMINATE_INDEX = 3;
     public final static Region REGION = Region.US_EAST_1;
-
+    public static final String NUM_OF_FILES = "numberOfFiles";
     public static final String MANAGER = "manager";
     public static final String LOCALS_TO_MANAGER_SQS = "TASKS_FROM_LOCAL_QUEUE";
     public static final String LOCAL_ID = "localID";
@@ -37,13 +36,13 @@ public class LocalApplication {
     public static final String MANAGER_ARN = "arn:aws:iam::192532717092:instance-profile/Manager-role";
     public static final String TERMINATE = "Terminate";
     public static final String HTML_FILE = "HTML_File";
-    public static final String USER_DATA_MANAGER =
-            "#!/bin/bash\n" +
-            "sudo mkdir /home/ass/\n" +
-            "sudo aws s3 cp s3://bucketforjar/dsp211Ass1Manager-1.0-SNAPSHOT-shaded.jar /home/ass/\n" +
-            "sudo /usr/bin/java -jar /home/ass/dsp211Ass1Manager-1.0-SNAPSHOT-shaded.jar\n";
+    public static final String TEMP_FILE_PREFIX = "tempfiles";
+    public static final String USER_DATA_MANAGER = "";
+//            "#!/bin/bash\n" +
+//                    "sudo mkdir /home/ass/\n" +
+//                    "sudo aws s3 cp s3://bucketforjar/dsp211Ass1Manager-1.0-SNAPSHOT-shaded.jar /home/ass/\n" +
+//                    "sudo /usr/bin/java -jar /home/ass/dsp211Ass1Manager-1.0-SNAPSHOT-shaded.jar\n"+
 //            "shutdown -h now";
-
 
 
     private String inputFileName;
@@ -94,14 +93,46 @@ public class LocalApplication {
                     .build();
             List<Message> messages = sqs_client.receiveMessage(receiveMessageRequest).messages();
             for (Message m : messages) {
-                if (m.body().startsWith("html is done")) {
+                if (m.body().startsWith("work is done")) {
                     receive_ans = true;
                     Map<String, MessageAttributeValue> attributes = m.messageAttributes();
-                    String HTML_file = attributes.get(HTML_FILE).stringValue();
-                    s3.getObject(GetObjectRequest.builder().bucket(bucket).key(HTML_file).build(), ResponseTransformer.toFile(Paths.get(this.getOutputFileName() + ".html")));
+
+                    int numberOfFiles = Integer.parseInt(attributes.get(NUM_OF_FILES).stringValue());
+                    HtmlParser htmlParser = new HtmlParser(outputFileName);
+                    boolean initResult = htmlParser.initFile();
+                    if (!initResult) {
+                        System.out.println("INIT HTML PARSING NOT WORKING!!!!!!!");
+                    }
+                    for (int i = 1; i <= numberOfFiles; i++) {
+
+                        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                                .bucket(bucket)
+                                .key(app_name + TEMP_FILE_PREFIX + i)
+                                .build();
+                        InputStream reader = s3.getObject(getObjectRequest, ResponseTransformer.toInputStream());
+                        Scanner scanner = new Scanner(reader);
+                        Map<String, String> parsed = new HashMap<>();
+                        while (scanner.hasNext()) {
+                            String toAdd = scanner.nextLine();
+                            if (!toAdd.trim().isEmpty() && toAdd.contains(Character.toString((char) 5))) {
+                                String[] currentUrlAndParsed = toAdd.split(Character.toString((char) 5));
+                                parsed.put(currentUrlAndParsed[0], currentUrlAndParsed[1].replace(Character.toString((char) 6), "\n"));
+                            }
+                        }
+                        boolean result = htmlParser.appendListOfUrlAndTextToHTML(parsed);
+                        if (!result) {
+                            System.out.println("HTML PARSING NOT WORKING!!!!!!!");
+                        }
+                    }
+                    boolean result = htmlParser.endFile();
+                    if (result) {
+                        System.out.println("HTML file is parsed and ready");
+                    }
+
+                    //s3.getObject(GetObjectRequest.builder().bucket(bucket).key(HTML_file).build(), ResponseTransformer.toFile(Paths.get(this.getOutputFileName() + ".html")));
                     emptyAndDeleteBucket(s3, bucket);
-                    deleteQueue(sqs_client,queue_name);
-                    System.out.println("HTML file is parsed and ready");
+                    deleteQueue(sqs_client, queue_name);
+
                     break;
                 }
             }
@@ -116,8 +147,10 @@ public class LocalApplication {
         }
     }
 
+
     /**
      * empty bucket and delete it from s3
+     *
      * @param s3
      * @param bucket
      */
@@ -138,7 +171,7 @@ public class LocalApplication {
         System.out.println("The bucket " + bucket + " has empty and deleted from S3");
     }
 
-    private void deleteQueue(SqsClient sqsClient, String queueName){
+    private void deleteQueue(SqsClient sqsClient, String queueName) {
         try {
             GetQueueUrlRequest getQueueRequest = GetQueueUrlRequest.builder()
                     .queueName(queueName)
@@ -157,6 +190,7 @@ public class LocalApplication {
             System.exit(1);
         }
     }
+
     private String getQueueUrl(SqsClient sqsClient, String queue_name) {
         GetQueueUrlRequest getQueueUrlRequest = GetQueueUrlRequest.builder()
                 .queueName(queue_name)

@@ -1,9 +1,4 @@
-package manager;
-
-import htmlflow.HtmlView;
-import htmlflow.StaticHtml;
-import org.xmlet.htmlapifaster.Body;
-import org.xmlet.htmlapifaster.EnumHttpEquivType;
+package localApplication;
 
 import java.io.BufferedWriter;
 import java.io.File;

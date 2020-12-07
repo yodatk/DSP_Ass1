@@ -633,12 +633,11 @@ public class Manager implements Runnable {
                 .imageId(ami_Id)
                 .iamInstanceProfile(IamInstanceProfileSpecification.builder()
                         .arn(WORKER_ARN).build())
-                .instanceType(InstanceType.T2_NANO)
+                .instanceType(InstanceType.T2_MICRO)
                 .userData(Base64.getEncoder().encodeToString(USER_DATA_WORKER.getBytes()))
                 .maxCount(1)
                 .minCount(1)
                 .build();
-        //todo- toAdd the proper jar with .userData(Base64.getEncoder().encodeToString("script based on download the file from s3 and java -jar path_to_jar".getBytes()))
 
         RunInstancesResponse response = ec2.runInstances(runRequest);
         String instanceId = response.instances().get(0).instanceId();

@@ -32,19 +32,19 @@ public class LocalApplication {
     public static final String LOCAL_SQS_NAME = "localSqsName";
     public static final String S_3_BUCKET_NAME = "s3BucketName";
     public static final String S_3_BUCKET_KEY = "s3BucketKey";
-    public static final String AMI_ID = "ami-06af1f9a5f7fe2e06";
+//    public static final String AMI_ID = "ami-06af1f9a5f7fe2e06";
+    public static final String AMI_ID = "ami-06ee5db2a0b25d160";
     public static final String MANAGER_ARN = "arn:aws:iam::192532717092:instance-profile/Manager-role";
     public static final String TERMINATE = "Terminate";
     public static final String HTML_FILE = "HTML_File";
     public static final String NUMBER_OF_URLS = "numberOfUrls";
     public static final String TEMP_FILE_PREFIX = "tempfiles";
     public static final String USER_DATA_MANAGER =
-            "#!/bin/bash\n" +
+                    "#!/bin/bash\n" +
                     "sudo mkdir /home/ass/\n" +
                     "sudo aws s3 cp s3://bucketforjar/Manager.jar /home/ass/\n" +
                     "sudo /usr/bin/java -jar /home/ass/Manager.jar\n" +
                     "shutdown -h now";
-
 
     private String inputFileName;
     private String outputFileName;
@@ -92,7 +92,7 @@ public class LocalApplication {
 
     public void run() throws Exception {
 
-        System.out.println("ALL GOOD...");
+        System.out.println("Arguments check passed");
         String app_name = "LocalApp" + System.currentTimeMillis();
         String queue_name = app_name + "Queue";
         String numberOfUrls = Integer.toString(countNumberOfUrls(this.inputFileName + ".txt"));

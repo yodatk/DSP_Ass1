@@ -15,7 +15,7 @@ public class Worker implements Runnable {
     public static final String WOKERS_SQS = "TO_DO_QUEUE"; // sqs for workers
     public static final String WORKERS_TO_MANAGER_SQS = "COMPLETED_IMAGES_QUEUE"; // sqs for MANAGER to get messages from workers
     public static final Region REGION = Region.US_EAST_1;
-    public static final int IMAGE_PARSING_TIME_OUT_IN_SEC = 100;
+    public static final int IMAGE_PARSING_TIME_OUT_IN_SEC = 200;
 
 
     public static final String PARSED_TEXT = "parsedText";

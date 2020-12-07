@@ -1,6 +1,7 @@
 package localApplication;
 
 
+import javafx.util.Pair;
 import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.ec2.Ec2Client;
@@ -12,8 +13,7 @@ import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.*;
 
 
-import java.io.File;
-import java.io.InputStream;
+import java.io.*;
 import java.nio.file.Paths;
 import java.util.*;
 
@@ -36,13 +36,14 @@ public class LocalApplication {
     public static final String MANAGER_ARN = "arn:aws:iam::192532717092:instance-profile/Manager-role";
     public static final String TERMINATE = "Terminate";
     public static final String HTML_FILE = "HTML_File";
+    public static final String NUMBER_OF_URLS = "numberOfUrls";
     public static final String TEMP_FILE_PREFIX = "tempfiles";
-    public static final String USER_DATA_MANAGER =
-                    "#!/bin/bash\n" +
-                    "sudo mkdir /home/ass/\n" +
-                    "sudo aws s3 cp s3://bucketforjar/Manager.jar /home/ass/\n" +
-                    "sudo /usr/bin/java -jar /home/ass/Manager.jar\n" +
-                    "shutdown -h now";
+    public static final String USER_DATA_MANAGER = "";
+//            "#!/bin/bash\n" +
+//                    "sudo mkdir /home/ass/\n" +
+//                    "sudo aws s3 cp s3://bucketforjar/Manager.jar /home/ass/\n" +
+//                    "sudo /usr/bin/java -jar /home/ass/Manager.jar\n" +
+//                    "shutdown -h now";
 
 
     private String inputFileName;
@@ -67,11 +68,34 @@ public class LocalApplication {
     }
 
 
+    private int countNumberOfUrls(String filename) {
+        int counter = 0;
+        try {
+            BufferedReader br = new BufferedReader(new FileReader(filename));
+            String currentUrl;
+            while ((currentUrl = br.readLine()) != null) {
+                if (currentUrl.trim().isEmpty()) {
+                    continue;
+                } else {
+                    counter++;
+                }
+
+            }
+            return counter;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return -1;
+        }
+
+    }
+
+
     public void run() throws Exception {
 
         System.out.println("ALL GOOD...");
         String app_name = "LocalApp" + System.currentTimeMillis();
         String queue_name = app_name + "Queue";
+        String numberOfUrls = Integer.toString(countNumberOfUrls(this.inputFileName + ".txt"));
         final String bucket = "bucket" + System.currentTimeMillis();
         Ec2Client ec2 = Ec2Client.builder().region(REGION).build();
         SqsClient sqs_client = SqsClient.builder().region(REGION).build();
@@ -80,7 +104,7 @@ public class LocalApplication {
         String file_name = uploadFileToS3(s3, bucket);
         createLocalQueue(sqs_client, queue_name);
         // m = message from local application to manager
-        sendRegistrationMessage(sqs_client, app_name, queue_name, bucket, file_name);
+        sendRegistrationMessage(sqs_client, app_name, queue_name, bucket, file_name, numberOfUrls);
 
         boolean receive_ans = false;
         System.out.println("Waiting for result from manager...");
@@ -103,20 +127,22 @@ public class LocalApplication {
                     if (!initResult) {
                         System.out.println("INIT HTML PARSING NOT WORKING!!!!!!!");
                     }
-                    for (int i = 1; i <= numberOfFiles; i++) {
+                    for (int i = 0; i < numberOfFiles; i++) {
 
                         GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                                 .bucket(bucket)
                                 .key(app_name + TEMP_FILE_PREFIX + i)
                                 .build();
+                        System.out.println("key is: " + app_name + TEMP_FILE_PREFIX + i);
+
                         InputStream reader = s3.getObject(getObjectRequest, ResponseTransformer.toInputStream());
                         Scanner scanner = new Scanner(reader);
-                        Map<String, String> parsed = new HashMap<>();
+                        List<Pair<String, String>> parsed = new Vector<>();
                         while (scanner.hasNext()) {
                             String toAdd = scanner.nextLine();
                             if (!toAdd.trim().isEmpty() && toAdd.contains(Character.toString((char) 5))) {
                                 String[] currentUrlAndParsed = toAdd.split(Character.toString((char) 5));
-                                parsed.put(currentUrlAndParsed[0], currentUrlAndParsed[1].replace(Character.toString((char) 6), "\n"));
+                                parsed.add(new Pair<>(currentUrlAndParsed[0], currentUrlAndParsed[1].replace(Character.toString((char) 6), "\n")));
                             }
                         }
                         boolean result = htmlParser.appendListOfUrlAndTextToHTML(parsed);
@@ -145,6 +171,7 @@ public class LocalApplication {
                     .build();
             sqs_client.sendMessage(sendMessageRequest);
         }
+
     }
 
 
@@ -198,14 +225,16 @@ public class LocalApplication {
         return sqsClient.getQueueUrl(getQueueUrlRequest).queueUrl();
     }
 
-    private void sendRegistrationMessage(SqsClient sqs, String app_name, String queue_name, String bucket_name, String file_name) {
+    private void sendRegistrationMessage(SqsClient sqs, String app_name, String queue_name, String bucket_name, String file_name, String numberOfUrls) {
         System.out.println("Sending registration message");
         Map<String, MessageAttributeValue> messageAttributes = new HashMap<>();
         messageAttributes.put(LOCAL_ID, MessageAttributeValue.builder().stringValue(app_name).dataType("String").build());
         messageAttributes.put(LOCAL_SQS_NAME, MessageAttributeValue.builder().stringValue(queue_name).dataType("String").build());
         messageAttributes.put(S_3_BUCKET_NAME, MessageAttributeValue.builder().stringValue(bucket_name).dataType("String").build());
         messageAttributes.put(S_3_BUCKET_KEY, MessageAttributeValue.builder().stringValue(file_name).dataType("String").build());
+        messageAttributes.put(NUMBER_OF_URLS, MessageAttributeValue.builder().stringValue(numberOfUrls).dataType("String").build());
         messageAttributes.put("N", MessageAttributeValue.builder().stringValue(Integer.toString(this.N)).dataType("Number").build());
+
         SendMessageRequest sendMessageRequest = SendMessageRequest.builder()
                 .queueUrl(this.getQueueUrl(sqs, LOCALS_TO_MANAGER_SQS))
                 .messageAttributes(messageAttributes)
@@ -265,8 +294,7 @@ public class LocalApplication {
                         .attributes(attributes).build();
                 sqsClient.createQueue(createQueueRequest);
                 System.out.println("Manager is Running");
-            }
-            else{
+            } else {
                 System.out.println("Manager is already running");
             }
 

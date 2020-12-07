@@ -27,7 +27,7 @@ public class Worker implements Runnable {
     private SqsClient sqs;
     private OCRParser ocrWorker;
 
-    public Worker () {
+    public Worker() {
         this.ocrWorker = new OCRParser();
     }
 
@@ -47,7 +47,6 @@ public class Worker implements Runnable {
     public void run() {
         init();
         while (true) {
-            System.out.println("Starting new task");
             // checking for tasks from messages queues
             ReceiveMessageRequest receiveMessagesFromManager = ReceiveMessageRequest.builder()
                     .queueUrl(queueWorkersUrl)
@@ -63,7 +62,7 @@ public class Worker implements Runnable {
                 String localId = givenAttributes.get(LOCAL_ID).stringValue();
                 String imagerUrl = givenAttributes.get(IMAGE_URL).stringValue();
                 // parsing image
-                String parsedText = this.ocrWorker.newImageTaskWithTessaract(imagerUrl,localId);
+                String parsedText = this.ocrWorker.newImageTaskWithTessaract(imagerUrl, localId);
 
                 // after image is proccessed-> sending result to manager
                 Map<String, MessageAttributeValue> attr = new HashMap<>();
@@ -101,8 +100,6 @@ public class Worker implements Runnable {
 
         }
     }
-
-
 
 
 // region old

@@ -1,17 +1,16 @@
 package worker;
 
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.ec2.Ec2Client;
-import software.amazon.awssdk.services.ec2.model.*;
 import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.*;
 import software.amazon.awssdk.services.sqs.model.UnsupportedOperationException;
+
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class Worker {
+public class Worker implements Runnable {
 
     public static final String WOKERS_SQS = "TO_DO_QUEUE"; // sqs for workers
     public static final String WORKERS_TO_MANAGER_SQS = "COMPLETED_IMAGES_QUEUE"; // sqs for MANAGER to get messages from workers
@@ -28,7 +27,7 @@ public class Worker {
     private SqsClient sqs;
     private OCRParser ocrWorker;
 
-    public Worker() {
+    public Worker () {
         this.ocrWorker = new OCRParser();
     }
 
@@ -48,31 +47,33 @@ public class Worker {
     public void run() {
         init();
         while (true) {
+            System.out.println("Starting new task");
             // checking for tasks from messages queues
             ReceiveMessageRequest receiveMessagesFromManager = ReceiveMessageRequest.builder()
                     .queueUrl(queueWorkersUrl)
                     .visibilityTimeout(IMAGE_PARSING_TIME_OUT_IN_SEC)
                     .maxNumberOfMessages(1)
+                    .messageAttributeNames("All")
                     .build();
             List<Message> tasksFromManager = this.sqs.receiveMessage(receiveMessagesFromManager).messages();
             for (Message msg : tasksFromManager) {
                 // suppose to only one message if at all
 
-                Map<String, String> givenAttributes = msg.attributesAsStrings();
-                String localId = givenAttributes.get(LOCAL_ID);
-                String imagerUrl = givenAttributes.get(IMAGE_URL);
+                Map<String, MessageAttributeValue> givenAttributes = msg.messageAttributes();
+                String localId = givenAttributes.get(LOCAL_ID).stringValue();
+                String imagerUrl = givenAttributes.get(IMAGE_URL).stringValue();
                 // parsing image
                 String parsedText = this.ocrWorker.newImageTaskWithTessaract(imagerUrl,localId);
 
                 // after image is proccessed-> sending result to manager
                 Map<String, MessageAttributeValue> attr = new HashMap<>();
-                attr.put(LOCAL_ID, MessageAttributeValue.builder().stringValue(localId).build());
-                attr.put(IMAGE_URL, MessageAttributeValue.builder().stringValue(imagerUrl).build());
-                attr.put(PARSED_TEXT, MessageAttributeValue.builder().stringValue(parsedText).build());
+                attr.put(LOCAL_ID, MessageAttributeValue.builder().dataType("String").stringValue(localId).build());
+                attr.put(IMAGE_URL, MessageAttributeValue.builder().dataType("String").stringValue(imagerUrl).build());
+                attr.put(PARSED_TEXT, MessageAttributeValue.builder().dataType("String").stringValue(parsedText).build());
                 boolean success = false;
                 long startTime = System.currentTimeMillis();
                 // if didn't succeed yet, and time out hasn't come yet
-                while (!success && System.currentTimeMillis() - startTime > 100000) {
+                while (!success && System.currentTimeMillis() - startTime < 100000) {
                     try {
                         SendMessageRequest sendMessageRequest = SendMessageRequest.builder()
                                 .queueUrl(queueWorkersToManagersUrl)
@@ -81,6 +82,7 @@ public class Worker {
                                 .delaySeconds(5)
                                 .build();
                         SendMessageResponse response = sqs.sendMessage(sendMessageRequest);
+                        System.out.println("url " + imagerUrl + " is done and sent message to sqs " + WORKERS_TO_MANAGER_SQS);
                         if (response.sdkHttpResponse().isSuccessful()) {
                             success = true;
                             DeleteMessageRequest deleteMessageRequest = DeleteMessageRequest.builder()

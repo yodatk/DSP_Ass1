@@ -18,7 +18,7 @@ public class OCRParser {
 
 
     public String newImageTaskWithTessaract(String urlString, String localId) {
-        System.out.println(urlString);
+        System.out.println("urlString is ->" +urlString);
 
         try {
             Image image = null;

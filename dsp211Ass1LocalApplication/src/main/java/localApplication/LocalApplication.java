@@ -13,6 +13,7 @@ import software.amazon.awssdk.services.sqs.model.*;
 
 
 import java.nio.file.Paths;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +37,13 @@ public class LocalApplication {
     public static final String MANAGER_ARN = "arn:aws:iam::192532717092:instance-profile/Manager-role";
     public static final String TERMINATE = "Terminate";
     public static final String HTML_FILE = "HTML_File";
+    public static final String USER_DATA_MANAGER =
+            "#!/bin/bash\n" +
+            "sudo mkdir /home/ass/\n" +
+            "sudo aws s3 cp s3://bucketforjar/dsp211Ass1Manager-1.0-SNAPSHOT-shaded.jar /home/ass/\n" +
+            "sudo /usr/bin/java -jar /home/ass/dsp211Ass1Manager-1.0-SNAPSHOT-shaded.jar\n";
+//            "shutdown -h now";
+
 
 
     private String inputFileName;
@@ -65,7 +73,6 @@ public class LocalApplication {
         System.out.println("ALL GOOD...");
         String app_name = "LocalApp" + System.currentTimeMillis();
         String queue_name = app_name + "Queue";
-        //todo - to check if we can put all locals on the same bucket
         final String bucket = "bucket" + System.currentTimeMillis();
         Ec2Client ec2 = Ec2Client.builder().region(REGION).build();
         SqsClient sqs_client = SqsClient.builder().region(REGION).build();
@@ -77,19 +84,23 @@ public class LocalApplication {
         sendRegistrationMessage(sqs_client, app_name, queue_name, bucket, file_name);
 
         boolean receive_ans = false;
+        System.out.println("Waiting for result from manager...");
         while (!receive_ans) {
             ReceiveMessageRequest receiveMessageRequest = ReceiveMessageRequest.builder()
                     .queueUrl(this.getQueueUrl(sqs_client, queue_name))
                     .waitTimeSeconds(10)
                     .visibilityTimeout(1)
+                    .messageAttributeNames("All")
                     .build();
             List<Message> messages = sqs_client.receiveMessage(receiveMessageRequest).messages();
             for (Message m : messages) {
-                if (m.body().startsWith("done")) {
+                if (m.body().startsWith("html is done")) {
                     receive_ans = true;
-                    //todo- to match the names with the manger
-                    String HTML_file = m.attributesAsStrings().get(HTML_FILE);
-                    s3.getObject(GetObjectRequest.builder().bucket(bucket).key(HTML_file).build(), ResponseTransformer.toFile(Paths.get(this.getOutputFileName())));
+                    Map<String, MessageAttributeValue> attributes = m.messageAttributes();
+                    String HTML_file = attributes.get(HTML_FILE).stringValue();
+                    s3.getObject(GetObjectRequest.builder().bucket(bucket).key(HTML_file).build(), ResponseTransformer.toFile(Paths.get(this.getOutputFileName() + ".html")));
+                    emptyAndDeleteBucket(s3, bucket);
+                    deleteQueue(sqs_client,queue_name);
                     System.out.println("HTML file is parsed and ready");
                     break;
                 }
@@ -105,37 +116,78 @@ public class LocalApplication {
         }
     }
 
-    public String getQueueUrl(SqsClient sqsClient, String queue_name) {
+    /**
+     * empty bucket and delete it from s3
+     * @param s3
+     * @param bucket
+     */
+    public void emptyAndDeleteBucket(S3Client s3, String bucket) {
+        ListObjectsV2Request listObjectsV2Request = ListObjectsV2Request.builder().bucket(bucket).build();
+        ListObjectsV2Response listObjectsResponse;
+        do {
+            listObjectsResponse = s3.listObjectsV2(listObjectsV2Request);
+            for (S3Object s3Object : listObjectsResponse.contents()) {
+                s3.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(s3Object.key()).build());
+            }
+            listObjectsV2Request = ListObjectsV2Request.builder().bucket(bucket)
+                    .continuationToken(listObjectsResponse.nextContinuationToken())
+                    .build();
+        } while (listObjectsResponse.isTruncated());
+        DeleteBucketRequest deleteBucketRequest = DeleteBucketRequest.builder().bucket(bucket).build();
+        s3.deleteBucket(deleteBucketRequest);
+        System.out.println("The bucket " + bucket + " has empty and deleted from S3");
+    }
+
+    private void deleteQueue(SqsClient sqsClient, String queueName){
+        try {
+            GetQueueUrlRequest getQueueRequest = GetQueueUrlRequest.builder()
+                    .queueName(queueName)
+                    .build();
+
+            String queueUrl = sqsClient.getQueueUrl(getQueueRequest).queueUrl();
+
+            DeleteQueueRequest deleteQueueRequest = DeleteQueueRequest.builder()
+                    .queueUrl(queueUrl)
+                    .build();
+
+            sqsClient.deleteQueue(deleteQueueRequest);
+
+        } catch (QueueNameExistsException e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
+    }
+    private String getQueueUrl(SqsClient sqsClient, String queue_name) {
         GetQueueUrlRequest getQueueUrlRequest = GetQueueUrlRequest.builder()
                 .queueName(queue_name)
                 .build();
         return sqsClient.getQueueUrl(getQueueUrlRequest).queueUrl();
     }
 
-    public void sendRegistrationMessage(SqsClient sqs, String app_name, String queue_name, String bucket_name, String file_name) {
+    private void sendRegistrationMessage(SqsClient sqs, String app_name, String queue_name, String bucket_name, String file_name) {
         System.out.println("Sending registration message");
         Map<String, MessageAttributeValue> messageAttributes = new HashMap<>();
-        messageAttributes.put(LOCAL_ID, MessageAttributeValue.builder().dataType("String").stringValue(app_name).build());
-        messageAttributes.put(LOCAL_SQS_NAME, MessageAttributeValue.builder().dataType("String").stringValue(queue_name).build());
-        messageAttributes.put(S_3_BUCKET_NAME, MessageAttributeValue.builder().dataType("String").stringValue(bucket_name).build());
-        messageAttributes.put(S_3_BUCKET_KEY, MessageAttributeValue.builder().dataType("String").stringValue(file_name).build());
-        messageAttributes.put("N", MessageAttributeValue.builder().dataType("Number").stringValue(Integer.toString(this.N)).build());
+        messageAttributes.put(LOCAL_ID, MessageAttributeValue.builder().stringValue(app_name).dataType("String").build());
+        messageAttributes.put(LOCAL_SQS_NAME, MessageAttributeValue.builder().stringValue(queue_name).dataType("String").build());
+        messageAttributes.put(S_3_BUCKET_NAME, MessageAttributeValue.builder().stringValue(bucket_name).dataType("String").build());
+        messageAttributes.put(S_3_BUCKET_KEY, MessageAttributeValue.builder().stringValue(file_name).dataType("String").build());
+        messageAttributes.put("N", MessageAttributeValue.builder().stringValue(Integer.toString(this.N)).dataType("Number").build());
         SendMessageRequest sendMessageRequest = SendMessageRequest.builder()
                 .queueUrl(this.getQueueUrl(sqs, LOCALS_TO_MANAGER_SQS))
                 .messageAttributes(messageAttributes)
-                .messageBody("body")
+                .messageBody("body from " + app_name)
                 .build();
         sqs.sendMessage(sendMessageRequest);
 
     }
 
-    public void createLocalQueue(SqsClient sqsClient, String local_name_queue) {
+    private void createLocalQueue(SqsClient sqsClient, String local_name_queue) {
         System.out.println("Creating local queue: " + local_name_queue);
         CreateQueueRequest createQueueRequest = CreateQueueRequest.builder().queueName(local_name_queue).build();
         sqsClient.createQueue(createQueueRequest);
     }
 
-    public void createManagerIfNotRunning(Ec2Client ec2, SqsClient sqsClient){
+    private void createManagerIfNotRunning(Ec2Client ec2, SqsClient sqsClient) {
         System.out.println("checking if manager exist...");
 
         boolean manager_is_running = false;
@@ -149,13 +201,22 @@ public class LocalApplication {
 
                 for (Reservation reservation : response.reservations()) {
                     for (Instance instance : reservation.instances()) {
-                        for (Tag tag : instance.tags())
+                        for (Tag tag : instance.tags()) {
                             if (tag.value().equals(MANAGER)) {
                                 System.out.println("manager is already running");
                                 manager_is_running = true;
+                                if (instance.state().name().toString().toLowerCase().equals("terminated") ||
+                                        instance.state().name().toString().toLowerCase().equals("stopped")) {
+                                    System.out.println("but is state is " + instance.state().name());
+                                    manager_is_running = false;
+                                    continue;
+                                }
                                 break;
                             }
+                        }
+                        if (manager_is_running) break;
                     }
+                    if (manager_is_running) break;
                 }
                 nextToken = response.nextToken();
             } while (nextToken != null);
@@ -178,20 +239,16 @@ public class LocalApplication {
     }
 
 
-
-
-    public void createEc2Instance(String name, String ami_Id, Ec2Client ec2) {
+    private void createEc2Instance(String name, String ami_Id, Ec2Client ec2) {
         RunInstancesRequest runRequest = RunInstancesRequest.builder()
                 .imageId(ami_Id)
                 .iamInstanceProfile(IamInstanceProfileSpecification.builder()
                         .arn(MANAGER_ARN).build())
-                .instanceType(InstanceType.T1_MICRO)
+                .instanceType(InstanceType.T2_MICRO)
+                .userData(Base64.getEncoder().encodeToString(USER_DATA_MANAGER.getBytes()))
                 .maxCount(1)
                 .minCount(1)
                 .build();
-        //todo- toAdd the proper jar with .userData(Base64.getEncoder().encodeToString("script based on download the file from s3 and java -jar path_to_jar".getBytes()))
-        //todo to add credentials in IAM role with .iamInstanceProfile(IamInstanceProfileSpecification.builder()
-        //                        .arn(ARN).build())
 
         RunInstancesResponse response = ec2.runInstances(runRequest);
         String instanceId = response.instances().get(0).instanceId();
@@ -207,9 +264,8 @@ public class LocalApplication {
         try {
             ec2.createTags(tagRequest);
             System.out.printf(
-                    "Successfully started EC2 Instance %s based on AMI %s",
+                    "Successfully started EC2 Instance %s based on AMI %s\n",
                     instanceId, ami_Id);
-            System.out.println("Successfully started EC2 Instance " + instanceId + " based on AMI " + ami_Id);
 
         } catch (Ec2Exception e) {
             System.err.println(e.awsErrorDetails().errorMessage());
@@ -217,7 +273,7 @@ public class LocalApplication {
         }
     }
 
-    public String uploadFileToS3(S3Client s3, String bucket) {
+    private String uploadFileToS3(S3Client s3, String bucket) {
         System.out.println("Uploading file to s3");
         createBucket(bucket, s3);
         String file_name = "file" + System.currentTimeMillis();
@@ -225,13 +281,13 @@ public class LocalApplication {
                 .bucket(bucket)
                 .key(file_name)
                 .build();
-        s3.putObject(putObjectRequest, Paths.get(this.getInputFileName()));
+        s3.putObject(putObjectRequest, Paths.get(this.getInputFileName() + ".txt"));
 
         System.out.println("Uploaded file: " + file_name + " to bucket: " + bucket);
         return file_name;
     }
 
-    public void createBucket(String bucketName, S3Client s3) {
+    private void createBucket(String bucketName, S3Client s3) {
         s3.createBucket(CreateBucketRequest
                 .builder()
                 .bucket(bucketName)

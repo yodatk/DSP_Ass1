@@ -44,7 +44,7 @@ public class HtmlParser {
 
     private boolean writeConstantToFile(String toWrite) {
         try {
-            BufferedWriter bw = new BufferedWriter(new FileWriter(this.htmlFile));
+            BufferedWriter bw = new BufferedWriter(new FileWriter(this.htmlFile,true));
             bw.write(toWrite);
             bw.close();
             return true;
@@ -61,7 +61,7 @@ public class HtmlParser {
 
     public boolean appendListOfUrlAndTextToHTML(Map<String, String> urlsToText) {
         try {
-            BufferedWriter bw = new BufferedWriter(new FileWriter(this.htmlFile));
+            BufferedWriter bw = new BufferedWriter(new FileWriter(this.htmlFile,true));
             for (Map.Entry<String, String> imageWithParse : urlsToText.entrySet()) {
 
                 String paragraph = HTML_START_PARAGRAPH_AND_IMAGE + imageWithParse.getKey() +
@@ -83,7 +83,7 @@ public class HtmlParser {
     public static void parseListOfUrlAndTextToHTML(Map<String, String> urlsToText, String fileName) {
         File f = new File(fileName + ".html");
         try {
-            BufferedWriter bw = new BufferedWriter(new FileWriter(f));
+            BufferedWriter bw = new BufferedWriter(new FileWriter(f,true));
             bw.write(HTML_HEADER);
             for (Map.Entry<String, String> imageWithParse : urlsToText.entrySet()) {
 

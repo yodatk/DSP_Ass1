@@ -45,6 +45,11 @@ public class Manager implements Runnable {
     public static final String WORKER_AMI_ID = "ami-05a4f386f5050295f";
     public static final String WORKER_ARN = "arn:aws:iam::192532717092:instance-profile/Worker";
     public static final String N = "N";
+    public static final String USER_DATA_WORKER =
+            "#!/bin/bash\n" +
+                    "sudo mkdir /home/ass/\n" +
+                    "sudo aws s3 cp s3://bucketforjar/Worker-jar.jar /home/ass/\n" +
+                    "sudo /usr/bin/java -jar -Xmx1g /home/ass/Worker-jar.jar\n";
 
 
     /**
@@ -585,6 +590,7 @@ public class Manager implements Runnable {
                 .iamInstanceProfile(IamInstanceProfileSpecification.builder()
                         .arn(WORKER_ARN).build())
                 .instanceType(InstanceType.T2_NANO)
+                .userData(Base64.getEncoder().encodeToString(USER_DATA_WORKER.getBytes()))
                 .maxCount(1)
                 .minCount(1)
                 .build();

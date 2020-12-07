@@ -37,11 +37,11 @@ public class LocalApplication {
     public static final String TERMINATE = "Terminate";
     public static final String HTML_FILE = "HTML_File";
     public static final String TEMP_FILE_PREFIX = "tempfiles";
-    public static final String USER_DATA_MANAGER = "";
-//            "#!/bin/bash\n" +
-//                    "sudo mkdir /home/ass/\n" +
-//                    "sudo aws s3 cp s3://bucketforjar/dsp211Ass1Manager-1.0-SNAPSHOT-shaded.jar /home/ass/\n" +
-//                    "sudo /usr/bin/java -jar /home/ass/dsp211Ass1Manager-1.0-SNAPSHOT-shaded.jar\n"+
+    public static final String USER_DATA_MANAGER =
+                    "#!/bin/bash\n" +
+                    "sudo mkdir /home/ass/\n" +
+                    "sudo aws s3 cp s3://bucketforjar/Manager.jar /home/ass/\n" +
+                    "sudo /usr/bin/java -jar /home/ass/Manager.jar\n";
 //            "shutdown -h now";
 
 

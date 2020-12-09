@@ -686,7 +686,7 @@ public class Manager implements Runnable {
     }
 
     /**
-     * remove all remaining SQS queues from AWS services
+     * Remove all remaining SQS queues from AWS services
      */
     private void removeSqss() {
         deleteQueue(queueWorkersUrl);
@@ -695,7 +695,7 @@ public class Manager implements Runnable {
     }
 
     /**
-     * delete a SQS Queue according ot the given Url
+     * Delete a SQS Queue according ot the given Url
      *
      * @param queueNameUrl String: name of the url to delete
      */

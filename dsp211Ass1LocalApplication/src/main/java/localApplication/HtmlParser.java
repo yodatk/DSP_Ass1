@@ -1,6 +1,7 @@
 package localApplication;
 
 //region imports
+
 import javafx.util.Pair;
 
 import java.io.BufferedWriter;
@@ -11,6 +12,10 @@ import java.util.List;
 
 //endregion imports
 
+/**
+ * Class that is responsible for converting the incoming data from manager (couples of images and their parsed text)
+ * to proper HTML file
+ */
 public class HtmlParser {
 
     /**

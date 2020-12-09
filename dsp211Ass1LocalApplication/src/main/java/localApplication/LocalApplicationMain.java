@@ -1,5 +1,8 @@
 package localApplication;
 
+/**
+ * main for the Local Application
+ */
 public class LocalApplicationMain {
     /**
      * args[0] = name of inputfile

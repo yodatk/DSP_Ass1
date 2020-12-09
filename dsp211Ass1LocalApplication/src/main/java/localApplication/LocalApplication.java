@@ -34,7 +34,7 @@ public class LocalApplication {
      */
     public final static int OUTPUT_FILE_NAME_INDEX = 1;
     /**
-     * Index of the N -> number of images per worker -> in the main arguments array
+     * Index of the N - number of images per worker - in the main arguments array
      */
     public final static int N_INDEX = 2;
     /**
@@ -538,10 +538,12 @@ public class LocalApplication {
         }
     }
 
+
     /**
-     * trying to parse a given string to int if possible
+     * try to parse the given string as int if possible
      *
-     * @param toCheck string to check if it is an integer
+     * @param toCheck String to check as integer
+     * @return Boolean: if String is integer,return true, otherwise false
      */
     public static boolean tryParseInt(String toCheck) {
         try {

@@ -277,8 +277,8 @@ public class LocalApplication {
     /**
      * Delete empty bucket from s3
      *
-     * @param s3        S3 client object ot send deletion message from
-     * @param bucket    name of the bucket to delete
+     * @param s3     S3 client object ot send deletion message from
+     * @param bucket name of the bucket to delete
      */
     public void emptyAndDeleteBucket(S3Client s3, String bucket) {
         ListObjectsV2Request listObjectsV2Request = ListObjectsV2Request.builder().bucket(bucket).build();
@@ -299,6 +299,7 @@ public class LocalApplication {
 
     /**
      * Delete queue from sqs
+     *
      * @param sqsClient SQS client object to send the delete message with
      * @param queueName name of the queue to delete
      */
@@ -324,6 +325,7 @@ public class LocalApplication {
 
     /**
      * get queue url from given queue name
+     *
      * @param sqsClient SQS client object to send request
      * @param queueName name of the queue to get it's url
      * @return URL of the wanted queue
@@ -337,11 +339,12 @@ public class LocalApplication {
 
     /**
      * registering this local application to the manager services, of parsing images urls to text
-     * @param sqs SQS client object to send the message with
-     * @param appName String: name of this local app
-     * @param queueName String: name of the queue to send message when the task is finished
-     * @param bucketName String: gbucket name to send the urls with parsed text to
-     * @param bucketKey String: bucket key for this local application
+     *
+     * @param sqs          SQS client object to send the message with
+     * @param appName      String: name of this local app
+     * @param queueName    String: name of the queue to send message when the task is finished
+     * @param bucketName   String: gbucket name to send the urls with parsed text to
+     * @param bucketKey    String: bucket key for this local application
      * @param numberOfUrls integer: number of the urls in the input file, and for the manger to parse
      */
     private void sendRegistrationMessage(SqsClient sqs, String appName, String queueName, String bucketName, String bucketKey, String numberOfUrls) {
@@ -365,7 +368,8 @@ public class LocalApplication {
 
     /**
      * creating Queue for this local app
-     * @param sqsClient SQS client object to send the creation message with
+     *
+     * @param sqsClient      SQS client object to send the creation message with
      * @param localNameQueue String: name of the local queue to create
      */
     private void createLocalQueue(SqsClient sqsClient, String localNameQueue) {
@@ -376,7 +380,8 @@ public class LocalApplication {
 
     /**
      * creates a manager instance in AWS if it's not already running to parse the current task
-     * @param ec2   EC2 client object to preform the checking and the creation if necessary of the manager
+     *
+     * @param ec2       EC2 client object to preform the checking and the creation if necessary of the manager
      * @param sqsClient SQS client object to create the queue of registration to manager if necessary ot the manager
      */
     private void createManagerIfNotRunning(Ec2Client ec2, SqsClient sqsClient) {
@@ -433,9 +438,10 @@ public class LocalApplication {
 
     /**
      * creating EC2 instance with the given name, and given AMI id
-     * @param name String: name of the role tag of the ec2
+     *
+     * @param name  String: name of the role tag of the ec2
      * @param amiId String : id of the image of the manager to run
-     * @param ec2 EC2 client to send requests from
+     * @param ec2   EC2 client to send requests from
      */
     private void createEc2Instance(String name, String amiId, Ec2Client ec2) {
         RunInstancesRequest runRequest = RunInstancesRequest.builder()
@@ -473,6 +479,7 @@ public class LocalApplication {
 
     /**
      * Upload file to AWS S3 to the given bucket
+     *
      * @param s3
      * @param bucket
      * @return name of the file that was uploaded to S3
@@ -493,8 +500,9 @@ public class LocalApplication {
 
     /**
      * creates a bucket in AWS S3
+     *
      * @param bucketName String: name of the bucket
-     * @param s3 S3Client object to send request to open bucket with
+     * @param s3         S3Client object to send request to open bucket with
      */
     private void createBucket(String bucketName, S3Client s3) {
         s3.createBucket(CreateBucketRequest

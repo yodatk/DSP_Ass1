@@ -103,18 +103,18 @@ Local application #2: n=20, size of input file: 114 urls
 Number of workers created: 6
 Total run time (from starting local application until receving both files): ~ 3 minutes
 
-### Test 4
+### Test 3
 
-Local application #1: n=7, size of input file: 57 urls
-Local application #2: n=7, size of input file: 57 urls
-Local application #3: n=7, size of input file: 57 urls
+Local application #1: n=10, size of input file: 57 urls
+Local application #2: n=9, size of input file: 57 urls
+Local application #3: n=8, size of input file: 57 urls
 Local application #4: n=7, size of input file: 57 urls
 Local application #5: n=7, size of input file: 57 urls
 Local application #6: n=7, size of input file: 57 urls
 Number of workers created: 9
 Total run time (from starting local application until receving both files): ~ 4 minutes
 
-### test 5
+### test 4
 
 Local application #1: n=180, size of input file: 1000 urls
 Number of workers created: 6
@@ -122,7 +122,7 @@ Total run time (from starting local application until receving both files): ~ 5 
 
 For all tests, output file were correct and valid.
 
-# How to run The program :
+# How to run the program :
 
 Each part of the program has it's own maven project. for each Sub-Project to create jar executables,
 write the command `mvn clean package` in each of the sub directory and you'll have the executable
@@ -137,3 +137,21 @@ outputfileName - name of the html file of the images with their parsed text
 n - number of images to parse per worker
 terminate- optional parameter to stop the manager from getting more tasks from local applications
 (or run the provided jar we supplied for the local application)
+
+## If you want to create other jars from the program :
+
+### Manager:
+
+From the root directory of the project, write
+`cd dsp211Ass1Manager`
+Afterwards, write the command
+`mvn clean package`
+The jar of the manager will be in the target folder.
+
+### Worker:
+
+From the root directory of the project, write
+`cd dsp211Ass1Worker`
+Afterwards, write the command
+`mvn clean package`
+The jar of the manager will be in the target folder.

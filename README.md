@@ -10,6 +10,8 @@ Then, instances will be launched in AWS (workers). Each worker will download ima
 
 We will now explain how each of the moudules is working: LocalApplication, Mananger and Worker.
 
+- There are also JavaDoc files in the 'JavaDocForAssignment1' folder. Open the index.html file to view all the information on the different modules and classes, with descreption on each field and function
+
 # Local Application:
 
 The local Application is the client of the program. it's sends an input of images urls to be parsed online, and recived the Images and their parsed text from the images.

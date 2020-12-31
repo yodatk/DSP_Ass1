@@ -1,5 +1,5 @@
-Tomer Gonen - 311200331
-Elimor Cohen - 301727657
+Tomer Gonen
+Elimor Cohen
 
 # Intro:
 
